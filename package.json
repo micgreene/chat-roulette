@@ -1,15 +1,17 @@
 {
   "name": "chat-roulette",
   "version": "1.0.0",
-  "description": "node.js/socket.io/mongoDB app that allows users to join and cycle through chat rooms",
-  "main": "index.js",
+  "description": "**Developers: Dar-Ci Calhoun, Cody Carpenter, Michael Greene, Anne Thorsteinson**",
+  "main": "server.js",
   "scripts": {
-    "test": "jest --coverage"
+    "test": "jest --coverage",
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/401Midterm/chat-roulette.git"
   },
+  "keywords": [],
   "author": "Dar-Ci Calhoun, Cody Carpenter, Michael Greene, Anne Thorsteinson",
   "license": "ISC",
   "bugs": {
@@ -25,4 +27,5 @@
     "express": "^4.17.1",
     "mongoose": "^5.12.6"
   }
+
 }
