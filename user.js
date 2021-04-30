@@ -57,7 +57,7 @@ socket.on('message', (payload) => {
 // })
 
 
-//this evaluates all text enter into the terminal after the user hits enter
+//this evaluates all text enter into the terminal after the user hits enter :)
 repl.start({
   //use this to set a prompt at the beginning of the terminal command line
   prompt: ``,
