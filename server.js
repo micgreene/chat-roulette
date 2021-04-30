@@ -1,5 +1,8 @@
 'use strict';
 
+//3rd party dependencies
+const repl = require('repl');
+
 //setup environmental variables
 require('dotenv').config();
 const port = process.env.PORT;
@@ -85,5 +88,20 @@ function startGame(socket) {
   socket.broadcast.emit('clear-terminal');
   socket.emit('clear-terminal');  
 }
+
+//this evaluates all text enter into the terminal after the user hits enter :)
+repl.start({
+  //use this to set a prompt at the beginning of the terminal command line
+  prompt: ``,
+  //this is whatever text was last entered into the terminal by the user
+  eval: (text) => {
+    //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
+    //this prevents multiple lines of your own text staying in the terminal when posting your messages
+    process.stdout.write('\u001b[1F');
+
+    //this creates an automatic 'message' event using the username and text entered as the payload
+    socket.send({text, username});
+  },
+})
 
 console.log(`Server Listening on Port: ${port}.`)
