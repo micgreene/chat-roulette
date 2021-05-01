@@ -40,10 +40,11 @@ UserSchema.pre('save', async function() {
 // Basic authorization
 UserSchema.statics.authenticateBasic = async function(username, password) {
   const user = await this.findOne({ username });
-  console.log("inside USER MODEL", user);
   const valid = await bcrypt.compare(password, user.password);
-  console.log("Valid", valid);
-  if (valid) { return user }
+  // console.log("Valid", valid);
+  if (valid) {
+    return user
+  }
   throw new Error('Invalid User');
 }
 

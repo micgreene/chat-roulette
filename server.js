@@ -1,5 +1,8 @@
 'use strict';
 
+const inquirer = require('inquirer');
+const mongoose = require('mongoose');
+
 //setup environmental variables
 require('dotenv').config();
 const port = process.env.PORT;
@@ -8,9 +11,15 @@ const port = process.env.PORT;
 const io = require('socket.io')(port);
 const userNameSp = io.of('/chatter');
 
+// Establish database connection
+const dbUrl = process.env.MONGO_URL
+mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
+
 
 //internal modules
 const User = require('./user-class.js')
+const basic = require('./src/auth/middleware/basic.js');
+const userModel = require('./src/auth/models/User.js');
 
 //create an array to hold references to each connected user
 const users = {
@@ -23,13 +32,23 @@ let winner = [];
 userNameSp.on('connection', (socket) => {
   console.log(`Welcome, socket id:${socket.id} has connected.`);
 
-  socket.on('newUser', payload => {
-    socket.broadcast.emit('joined-server', payload);
-    socket.emit('joined-server', payload);
-    // adds new user
-    users[payload] = new User(payload);
-    process.stdout.write(`${payload.username} has connected to server`);
-    process.stdout.write('\r\x1b[K');
+  socket.on('login-credentials', payload => {
+    basic(payload.username, payload.password);
+    addNewUser(payload.username)
+    socket.broadcast.emit('joined-server', payload.username );
+    socket.emit('joined-server', payload.username );
+  })
+
+  socket.on('signup-credentials', payload => {
+    console.log(payload);
+    var user = new userModel({ username: payload.username, password: payload.password });
+    user.save( (err, user) => {
+      if (err) { console.log(err.message || "Error creating new user") }
+      else { console.log(`You have successfully created an account ${payload.username}`) }
+    })
+    addNewUser(payload.username)
+    socket.broadcast.emit('joined-server', { username: payload.username });
+    socket.emit('joined-server', { username: payload.username });
   })
 
   // after pressing enter
@@ -44,13 +63,26 @@ userNameSp.on('connection', (socket) => {
       //socket.broadcast.emit('authors', authorList);
       socket.emit('authors', authorList);
     }
+
+    if(payload.subject === "account") {
+      if (payload.text.charAt(0).toUpperCase() === 'Y') {
+        // then the user has an account, let's ask them to login
+        console.log("initiated login");
+        socket.emit('login')
+      } else {
+        // the user entered something else, let's assume they want to make an account
+        console.log("entered signup event");
+        socket.emit('signup')
+      }
+    }
+
     // start game
-    //if (payload.text.split('\n')[0] === '**start') {      
+    //if (payload.text.split('\n')[0] === '**start') {
     //   Object.keys(users).forEach(value => {
     //     //assign stuff like chat log to each user here
-    //   }) 
+    //   })
     //   startGame(socket);
-    // }    
+    // }
   })
 
   //if there is a connection problem return an error message explaining why
@@ -58,6 +90,12 @@ userNameSp.on('connection', (socket) => {
     console.log(`connect_error due to ${err.message}`);
   });
 });
+
+function addNewUser(username) {
+  users[username] = new User(username);
+  process.stdout.write(`${username} has connected to server`);
+  process.stdout.write('\r\x1b[K');
+}
 
 function authors() {
   const projectAuthors = {
@@ -80,10 +118,10 @@ function startGame(socket) {
     users[value].score = 0;
   });
 
-  //clears text from screen for important alerts 
+  //clears text from screen for important alerts
   //*see user.js for 'clear' event handler
   socket.broadcast.emit('clear-terminal');
-  socket.emit('clear-terminal');  
+  socket.emit('clear-terminal');
 }
 
 console.log(`Server Listening on Port: ${port}.`)

@@ -2,7 +2,7 @@ const base64 = require('base-64');
 const userModel = require('../models/User.js');
 
 module.exports = async (username, password) => {
-  console.log("inside basic", username, password);
+  // console.log("inside basic", username, password);
   let user = await userModel.findOne({ username: username }, function (err, user) {
     if (err) {
       console.log('Database error');
@@ -11,12 +11,13 @@ module.exports = async (username, password) => {
       console.log('No such user found');
     } else {
       //test if the password matches
-      userModel.authenticateBasic(password, function(err, valid) {
+      userModel.authenticateBasic(username, password, function(err, user) {
+        console.log("valid in basic.js", user);
         if (err) {
           console.log(err.message || 'Database error' );
         } else {
-          if (valid) {
-            console.log(`Successful login ${username}`)
+          if (user) {
+            console.log(`Successful login ${user.username}`)
           } else {
             console.log('Incorrect login credentials');
           }

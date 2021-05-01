@@ -6,6 +6,7 @@ const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
 const { prototype } = require('stream');
+const inquirer = require('inquirer');
 
 //configure environmental variables
 dotenv.config();
@@ -18,13 +19,35 @@ const host = `http://localhost:${port}`;
 const socket = io.connect(`${host}/chatter`);
 
 //create a username and color for your text
-const username = 'XxSome-User04xX';
+let username = 'Guest';
 const textColor = chalk.bold.purple;
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
-  socket.emit('newUser', username);
-});
+
+  var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
+
+  inquirer.prompt(loginPrompt)
+    .then(answer => {
+      var questions = [
+        { type: 'input', name: 'username', message: 'Enter your username: ' },
+        { type: 'input', name: 'password', message: 'Enter your password: ' }
+      ]
+      if (answer.account === 'Yes') {
+        inquirer.prompt(questions)
+          .then(answers => {
+            socket.emit('login-credentials', { username: answers.username, password: answers.password });
+          })
+          .catch(err => { console.log(err) })
+      } else {
+        inquirer.prompt(questions)
+          .then(answers => {
+            socket.emit('signup-credentials', { username: answers.username, password: answers.password });
+          })
+      }
+    })
+    .catch(err => { console.log(err) });
+})
 
 socket.on('joined-server', payload => {
   console.log(`♫${payload}♫ has entered the Chatter©!`)
