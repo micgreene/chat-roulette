@@ -20,7 +20,7 @@
     "socket.io": "^4.0.1",
     "socket.io-client": "^4.0.1"
   },
-  "devDependencies": {},
+  "devDependencies": {"jest": "^26.6.3"},
   "scripts": {
     "test": "jest --coverage",
     "start": "nodemon index.js"
@@ -34,5 +34,6 @@
   "bugs": {
     "url": "https://github.com/401Midterm/chat-roulette/issues"
   },
+
   "homepage": "https://github.com/401Midterm/chat-roulette#readme"
 }

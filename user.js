@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
-const { prototype } = require('stream');
 const inquirer = require('inquirer');
 
 //configure environmental variables
@@ -19,8 +18,11 @@ const host = `http://localhost:${port}`;
 const socket = io.connect(`${host}/chatter`);
 
 //create a username and color for your text
+
 let username = 'Guest';
-const textColor = chalk.bold.purple;
+//so we can make this modular later
+const textColor = chalk.bold.blue;
+
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
@@ -50,7 +52,13 @@ socket.on('connect', () => {
 })
 
 socket.on('joined-server', payload => {
-  console.log(`♫${payload}♫ has entered the Chatter©!`)
+  //should reassign username to user input
+  username = payload.username;
+  console.log(`♫${payload.username}♫ has entered the Chatter©!`)
+});
+
+socket.on('odd-number-of-users', payload => {
+  console.log(payload)
 });
 
 socket.on('clear', payload => {
@@ -66,8 +74,12 @@ socket.on('authors', payload => {
 
 socket.on('message', (payload) => {
   const text = payload.text;
-  const username = payload.username;
-  console.log(chalk.green(`[${username}] ${text.split('\n')[0]}`))
+  const usernameReceived = payload.username;
+  if(usernameReceived === username){
+    console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  } else {
+    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  }
 })
 
 //eventual events we'll probably need
@@ -80,7 +92,7 @@ socket.on('message', (payload) => {
 // })
 
 
-//this evaluates all text enter into the terminal after the user hits enter
+//this evaluates all text enter into the terminal after the user hits enter :)
 repl.start({
   //use this to set a prompt at the beginning of the terminal command line
   prompt: ``,
