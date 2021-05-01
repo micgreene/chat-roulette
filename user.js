@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
-const { prototype } = require('stream');
 
 //configure environmental variables
 dotenv.config();
@@ -18,8 +17,9 @@ const host = `http://localhost:${port}`;
 const socket = io.connect(`${host}/chatter`);
 
 //create a username and color for your text
-const username = 'XxSome-User04xX';
-const textColor = chalk.bold.purple;
+const username = 'user1';
+//so we can make this modular later
+const textColor = chalk.bold.blue;
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
@@ -49,9 +49,9 @@ socket.on('message', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
   if(usernameReceived === username){
-    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+    console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
   } else {
-    console.log(chalk.red(`[${usernameReceived}] ${text.split('\n')[0]}`));
+    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
   }
 })
 

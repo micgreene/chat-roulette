@@ -72,23 +72,7 @@ userNameSp.on('connection', (socket) => {
     }
 
     if (payload.text.split('\n')[0] === '**shuffle') {      
-      if(winners.length % 2 !== 0){
-        socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
-      } else{
-        let counter = 1;
-        let roomNo = 0;
-        for(let i = 0; i < winners.length; i++){
-          winners[i].socket.leave('lobby');
-          winners[i].socket.join(roomNo);
-          
-          if(counter % 2 === 0){
-            counter = 1;
-            roomNo++;
-          } else if(counter % 2 !== 0){
-            counter++;
-          }
-        }
-      }
+      shuffleUsers(socket);
       console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);      
     }
 
@@ -124,11 +108,28 @@ function authors() {
     cody: {name: 'Cody Carpenter     ', linkedin: 'url'},
     mike: {name: 'Michael Greene     ', linkedin: 'url'}
   };
-  // Object.keys(projectAuthors).forEach(value => {
-  //   counter++;
-  //   console.log(JSON.stringify(value), counter);
-  // });
+  
   return projectAuthors;
+}
+
+function shuffleUsers(socket){
+  if(winners.length % 2 !== 0){
+    socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
+  } else{
+    let counter = 1;
+    let roomNo = 0;
+    for(let i = 0; i < winners.length; i++){
+      winners[i].socket.leave('lobby');
+      winners[i].socket.join(roomNo);
+      
+      if(counter % 2 === 0){
+        counter = 1;
+        roomNo++;
+      } else if(counter % 2 !== 0){
+        counter++;
+      }
+    }
+  }
 }
 
 // function to start game logic
