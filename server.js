@@ -2,6 +2,7 @@
 
 //3rd party dependencies
 const repl = require('repl');
+const mathQuestions = require('./mathQuestions.js');
 
 //setup environmental variables
 require('dotenv').config();
@@ -93,12 +94,10 @@ userNameSp.on('connection', (socket) => {
     }
 
     // **start starts the chat game logic
-    // if (payload.text.split('\n')[0] === '**start') {      
-    //   Object.keys(users).forEach(value => {
-    //     //assign stuff like chat log to each user here
-    //   }) 
-    //   startGame(socket);
-    // }    
+    if (payload.text.split('\n')[0] === '**start') { 
+      let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
+      startGame(socket, question);
+    }
   });
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
@@ -132,7 +131,8 @@ function authors() {
 }
 
 // function to start game logic
-function startGame(socket) {
+function startGame(socket, question) {
+  socket.emit('question', question);
   // resets the scores
   Object.keys(users).forEach(value => {
     users[value].score = 0;

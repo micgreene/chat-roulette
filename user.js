@@ -55,6 +55,10 @@ socket.on('message', (payload) => {
   }
 })
 
+socket.on('question', (payload) => {
+  console.log(payload.question, '\n', payload.choices);
+})
+
 //eventual events we'll probably need
 // socket.on('round', payload => {
 //   console.log(`${payload.username} WON THE ROUND!!!`)
