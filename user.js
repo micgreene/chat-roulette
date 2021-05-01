@@ -56,6 +56,7 @@ socket.on('joined-server', payload => {
   username = payload;
   console.log(`♫${payload}♫ has entered the Chatter©!`);
   replStart();
+  socket.off('joined-server');
 });
 
 socket.on('odd-number-of-users', payload => {
@@ -76,6 +77,17 @@ socket.on('authors', payload => {
 socket.on('message', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
+  if (usernameReceived === username) {
+    console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  } else {
+    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  }
+})
+
+socket.on('command', (payload) => {
+  const text = payload.text;
+  const usernameReceived = payload.username;
+  process.stdout.write('\u001b[1F');
   if (usernameReceived === username) {
     console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
   } else {
