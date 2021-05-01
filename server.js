@@ -1,6 +1,5 @@
 'use strict';
 
-const inquirer = require('inquirer');
 const mongoose = require('mongoose');
 
 //setup environmental variables
