@@ -1,8 +1,11 @@
 'use strict';
 
 //3rd party dependencies
+const inquirer = require('inquirer');
+const mongoose = require('mongoose');
 const repl = require('repl');
 const mathQuestions = require('./mathQuestions.js');
+
 
 //setup environmental variables
 require('dotenv').config();
@@ -12,9 +15,15 @@ const port = process.env.PORT;
 const io = require('socket.io')(port);
 const userNameSp = io.of('/chatter');
 
+// Establish database connection
+const dbUrl = process.env.MONGO_URL
+mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
+
 
 //internal modules
 const User = require('./user-class.js')
+const basic = require('./src/auth/middleware/basic.js');
+const userModel = require('./src/auth/models/User.js');
 
 //create an array to hold references to each connected user
 const users = {
@@ -35,24 +44,23 @@ userNameSp.on('connection', (socket) => {
   socket.join('lobby');
   console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
 
-  //listens for a new user entering the chat
-  socket.on('newUser', payload => {
-    socket.broadcast.emit('joined-server', payload);
-    socket.emit('joined-server', payload);
+  socket.on('login-credentials', payload => {
+    basic(payload.username, payload.password);
+    addNewUser(payload.username)
+    socket.broadcast.emit('joined-server', payload.username );
+    socket.emit('joined-server', payload.username );
+  })
 
-    // adds new user to users object to keep track of user info
-    users[payload] = new User(payload);
-    users[payload].id = socket.id;
-
-    //uses current user info to create an object for the winners array
-    winnerObj.username = payload;
-    winnerObj.id = socket.id;
-    winnerObj.socket = socket;
-    winners.push(winnerObj);
-
-    //alert server admin a new user has joined
-    process.stdout.write(`${payload.username} has connected to server`);
-    process.stdout.write('\r\x1b[K');
+  socket.on('signup-credentials', payload => {
+    console.log(payload);
+    var user = new userModel({ username: payload.username, password: payload.password });
+    user.save( (err, user) => {
+      if (err) { console.log(err.message || "Error creating new user") }
+      else { console.log(`You have successfully created an account ${payload.username}`) }
+    })
+    addNewUser(payload.username)
+    socket.broadcast.emit('joined-server', { username: payload.username });
+    socket.emit('joined-server', { username: payload.username });
   })
 
   // submitting a string in the terminal will automatically create a message event via repl
@@ -73,23 +81,7 @@ userNameSp.on('connection', (socket) => {
     }
 
     if (payload.text.split('\n')[0] === '**shuffle') {      
-      if(winners.length % 2 !== 0){
-        socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
-      } else{
-        let counter = 1;
-        let roomNo = 0;
-        for(let i = 0; i < winners.length; i++){
-          winners[i].socket.leave('lobby');
-          winners[i].socket.join(roomNo);
-          
-          if(counter % 2 === 0){
-            counter = 1;
-            roomNo++;
-          } else if(counter % 2 !== 0){
-            counter++;
-          }
-        }
-      }
+      shuffleUsers(socket);
       console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);      
     }
 
@@ -116,6 +108,12 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
+function addNewUser(username) {
+  users[username] = new User(username);
+  process.stdout.write(`${username} has connected to server`);
+  process.stdout.write('\r\x1b[K');
+}
+
 function authors() {
   const projectAuthors = {
     darci: { name: 'Dar-Ci Calhoun     ', linkedin: 'url'},
@@ -123,11 +121,28 @@ function authors() {
     cody: {name: 'Cody Carpenter     ', linkedin: 'url'},
     mike: {name: 'Michael Greene     ', linkedin: 'url'}
   };
-  // Object.keys(projectAuthors).forEach(value => {
-  //   counter++;
-  //   console.log(JSON.stringify(value), counter);
-  // });
+  
   return projectAuthors;
+}
+
+function shuffleUsers(socket){
+  if(winners.length % 2 !== 0){
+    socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
+  } else{
+    let counter = 1;
+    let roomNo = 0;
+    for(let i = 0; i < winners.length; i++){
+      winners[i].socket.leave('lobby');
+      winners[i].socket.join(roomNo);
+      
+      if(counter % 2 === 0){
+        counter = 1;
+        roomNo++;
+      } else if(counter % 2 !== 0){
+        counter++;
+      }
+    }
+  }
 }
 
 // function to start game logic
@@ -138,10 +153,10 @@ function startGame(socket, question) {
     users[value].score = 0;
   });
 
-  //clears text from screen for important alerts 
+  //clears text from screen for important alerts
   //*see user.js for 'clear' event handler
   socket.broadcast.emit('clear-terminal');
-  socket.emit('clear-terminal');  
+  socket.emit('clear-terminal');
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
