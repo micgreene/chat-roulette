@@ -30,6 +30,10 @@ socket.on('joined-server', payload => {
   console.log(`♫${payload}♫ has entered the Chatter©!`)
 });
 
+socket.on('odd-number-of-users', payload => {
+  console.log(payload)
+});
+
 socket.on('clear', payload => {
   process.stdout.write('\x1B[2J');
 })
@@ -43,8 +47,12 @@ socket.on('authors', payload => {
 
 socket.on('message', (payload) => {
   const text = payload.text;
-  const username = payload.username;
-  console.log(chalk.green(`[${username}] ${text.split('\n')[0]}`))
+  const usernameReceived = payload.username;
+  if(usernameReceived === username){
+    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  } else {
+    console.log(chalk.red(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  }
 })
 
 //eventual events we'll probably need

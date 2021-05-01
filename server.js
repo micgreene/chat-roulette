@@ -24,11 +24,13 @@ const users = {
 let winners = [];
 
 userNameSp.on('connection', (socket) => {
-  //creates a new instance of the username/socket.id of a new user to keep trck of for the game tournament array
+  //creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
   let winnerObj = {
     username: null,
-    id: null
+    id: null,
+    socket: null
   }
+
   socket.join('lobby');
   console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
 
@@ -44,8 +46,8 @@ userNameSp.on('connection', (socket) => {
     //uses current user info to create an object for the winners array
     winnerObj.username = payload;
     winnerObj.id = socket.id;
+    winnerObj.socket = socket;
     winners.push(winnerObj);
-    console.log('Winners array: ', winners);
 
     //alert server admin a new user has joined
     process.stdout.write(`${payload.username} has connected to server`);
@@ -69,8 +71,29 @@ userNameSp.on('connection', (socket) => {
       socket.emit('authors', authorList);
     }
 
+    if (payload.text.split('\n')[0] === '**shuffle') {      
+      if(winners.length % 2 !== 0){
+        socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
+      } else{
+        let counter = 1;
+        let roomNo = 0;
+        for(let i = 0; i < winners.length; i++){
+          winners[i].socket.leave('lobby');
+          winners[i].socket.join(roomNo);
+          
+          if(counter % 2 === 0){
+            counter = 1;
+            roomNo++;
+          } else if(counter % 2 !== 0){
+            counter++;
+          }
+        }
+      }
+      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);      
+    }
+
     // **start starts the chat game logic
-    //if (payload.text.split('\n')[0] === '**start') {      
+    // if (payload.text.split('\n')[0] === '**start') {      
     //   Object.keys(users).forEach(value => {
     //     //assign stuff like chat log to each user here
     //   }) 
@@ -86,8 +109,6 @@ userNameSp.on('connection', (socket) => {
         winners.splice(i,1);
       }
     }
-    
-    console.log('Winners array: ', winners);
   });
 
   //if there is a connection problem return an error message explaining why
