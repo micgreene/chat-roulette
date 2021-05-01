@@ -1,7 +1,10 @@
 'use strict';
 
 //3rd party dependencies
+const inquirer = require('inquirer');
+const mongoose = require('mongoose');
 const repl = require('repl');
+
 
 //setup environmental variables
 require('dotenv').config();
@@ -11,9 +14,15 @@ const port = process.env.PORT;
 const io = require('socket.io')(port);
 const userNameSp = io.of('/chatter');
 
+// Establish database connection
+const dbUrl = process.env.MONGO_URL
+mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
+
 
 //internal modules
 const User = require('./user-class.js')
+const basic = require('./src/auth/middleware/basic.js');
+const userModel = require('./src/auth/models/User.js');
 
 //create an array to hold references to each connected user
 const users = {
@@ -34,24 +43,23 @@ userNameSp.on('connection', (socket) => {
   socket.join('lobby');
   console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
 
-  //listens for a new user entering the chat
-  socket.on('newUser', payload => {
-    socket.broadcast.emit('joined-server', payload);
-    socket.emit('joined-server', payload);
+  socket.on('login-credentials', payload => {
+    basic(payload.username, payload.password);
+    addNewUser(payload.username)
+    socket.broadcast.emit('joined-server', payload.username );
+    socket.emit('joined-server', payload.username );
+  })
 
-    // adds new user to users object to keep track of user info
-    users[payload] = new User(payload);
-    users[payload].id = socket.id;
-
-    //uses current user info to create an object for the winners array
-    winnerObj.username = payload;
-    winnerObj.id = socket.id;
-    winnerObj.socket = socket;
-    winners.push(winnerObj);
-
-    //alert server admin a new user has joined
-    process.stdout.write(`${payload.username} has connected to server`);
-    process.stdout.write('\r\x1b[K');
+  socket.on('signup-credentials', payload => {
+    console.log(payload);
+    var user = new userModel({ username: payload.username, password: payload.password });
+    user.save( (err, user) => {
+      if (err) { console.log(err.message || "Error creating new user") }
+      else { console.log(`You have successfully created an account ${payload.username}`) }
+    })
+    addNewUser(payload.username)
+    socket.broadcast.emit('joined-server', { username: payload.username });
+    socket.emit('joined-server', { username: payload.username });
   })
 
   // submitting a string in the terminal will automatically create a message event via repl
@@ -80,9 +88,9 @@ userNameSp.on('connection', (socket) => {
     // if (payload.text.split('\n')[0] === '**start') {      
     //   Object.keys(users).forEach(value => {
     //     //assign stuff like chat log to each user here
-    //   }) 
+    //   })
     //   startGame(socket);
-    // }    
+    // }   
   });
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
@@ -100,6 +108,12 @@ userNameSp.on('connection', (socket) => {
     console.log(`connect_error due to ${err.message}`);
   });
 });
+
+function addNewUser(username) {
+  users[username] = new User(username);
+  process.stdout.write(`${username} has connected to server`);
+  process.stdout.write('\r\x1b[K');
+}
 
 function authors() {
   const projectAuthors = {
@@ -139,10 +153,10 @@ function startGame(socket) {
     users[value].score = 0;
   });
 
-  //clears text from screen for important alerts 
+  //clears text from screen for important alerts
   //*see user.js for 'clear' event handler
   socket.broadcast.emit('clear-terminal');
-  socket.emit('clear-terminal');  
+  socket.emit('clear-terminal');
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
