@@ -47,6 +47,7 @@ userNameSp.on('connection', (socket) => {
   socket.on('login-credentials', payload => {
     basic(payload.username, payload.password);
     addNewUser(payload.username)
+    console.log(payload.username);
     socket.broadcast.emit('joined-server', payload.username );
     socket.emit('joined-server', payload.username );
   })
@@ -58,7 +59,7 @@ userNameSp.on('connection', (socket) => {
       if (err) { console.log(err.message || "Error creating new user") }
       else { console.log(`You have successfully created an account ${payload.username}`) }
     })
-    addNewUser(payload.username)
+    addNewUser(payload.username);
     socket.broadcast.emit('joined-server', { username: payload.username });
     socket.emit('joined-server', { username: payload.username });
   })
