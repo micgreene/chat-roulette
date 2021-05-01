@@ -21,40 +21,74 @@ const users = {
 };
 
 //create an array of users who have won the current round of a game
-let winner = [];
+let winners = [];
 
 userNameSp.on('connection', (socket) => {
-  console.log(`Welcome, socket id:${socket.id} has connected.`);
+  //creates a new instance of the username/socket.id of a new user to keep trck of for the game tournament array
+  let winnerObj = {
+    username: null,
+    id: null
+  }
+  socket.join('lobby');
+  console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
 
+  //listens for a new user entering the chat
   socket.on('newUser', payload => {
     socket.broadcast.emit('joined-server', payload);
     socket.emit('joined-server', payload);
-    // adds new user
+
+    // adds new user to users object to keep track of user info
     users[payload] = new User(payload);
+    users[payload].id = socket.id;
+
+    //uses current user info to create an object for the winners array
+    winnerObj.username = payload;
+    winnerObj.id = socket.id;
+    winners.push(winnerObj);
+    console.log('Winners array: ', winners);
+
+    //alert server admin a new user has joined
     process.stdout.write(`${payload.username} has connected to server`);
     process.stdout.write('\r\x1b[K');
   })
 
-  // after pressing enter
+  // submitting a string in the terminal will automatically create a message event via repl
   socket.on('message', payload => {
     //send message to all on server
     socket.broadcast.emit('message', payload)
     socket.emit('message', payload)
 
+    //*******************COMMANDS LIST********************/
+    //----------List of Commands Users/Admins May Enter Into Terminal
+    //command strings are all prefaced by **
+
+    //**authors returns the names and Linked-in urls of all team members
     if (payload.text.split('\n')[0] === '**authors') {
       let authorList = authors();
       JSON.stringify(authorList);
-      //socket.broadcast.emit('authors', authorList);
       socket.emit('authors', authorList);
     }
-    // start game
+
+    // **start starts the chat game logic
     //if (payload.text.split('\n')[0] === '**start') {      
     //   Object.keys(users).forEach(value => {
     //     //assign stuff like chat log to each user here
     //   }) 
     //   startGame(socket);
     // }    
-  })
+  });
+
+  //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
+  socket.on('disconnect', () =>{
+    console.log(socket.id, 'was disconnected!');
+    for(let i = 0; i < winners.length; i++){
+      if(winners[i].id === socket.id){
+        winners.splice(i,1);
+      }
+    }
+    
+    console.log('Winners array: ', winners);
+  });
 
   //if there is a connection problem return an error message explaining why
   io.on('connect_error', (err) => {
@@ -76,7 +110,7 @@ function authors() {
   return projectAuthors;
 }
 
-// new user joins game
+// function to start game logic
 function startGame(socket) {
   // resets the scores
   Object.keys(users).forEach(value => {

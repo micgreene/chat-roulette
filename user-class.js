@@ -2,6 +2,7 @@
 
 class User{
   constructor(username){
+    this.id = null,
     this.username = username,
     this.transcript = null,
     this.score = 0,

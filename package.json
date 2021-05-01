@@ -1,0 +1,31 @@
+{
+  "name": "chat-roulette",
+  "version": "1.0.0",
+  "description": "**Developers: Dar-Ci Calhoun, Cody Carpenter, Michael Greene, Anne Thorsteinson**",
+  "main": "server.js",
+  "scripts": {
+    "test": "jest --coverage",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/401Midterm/chat-roulette.git"
+  },
+  "keywords": [],
+  "author": "Dar-Ci Calhoun, Cody Carpenter, Michael Greene, Anne Thorsteinson",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/401Midterm/chat-roulette/issues"
+  },
+  "homepage": "https://github.com/401Midterm/chat-roulette#readme",
+  "devDependencies": {
+    "jest": "^26.6.3"
+  },
+  "dependencies": {
+    "bcrypt": "^5.0.1",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "mongoose": "^5.12.6",
+    "socket.io": "^2.4.1"
+  }
+}
