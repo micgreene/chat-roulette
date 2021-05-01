@@ -64,18 +64,6 @@ userNameSp.on('connection', (socket) => {
       socket.emit('authors', authorList);
     }
 
-    if(payload.subject === "account") {
-      if (payload.text.charAt(0).toUpperCase() === 'Y') {
-        // then the user has an account, let's ask them to login
-        console.log("initiated login");
-        socket.emit('login')
-      } else {
-        // the user entered something else, let's assume they want to make an account
-        console.log("entered signup event");
-        socket.emit('signup')
-      }
-    }
-
     // start game
     //if (payload.text.split('\n')[0] === '**start') {
     //   Object.keys(users).forEach(value => {
