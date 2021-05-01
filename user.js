@@ -53,8 +53,9 @@ socket.on('connect', () => {
 
 socket.on('joined-server', payload => {
   //should reassign username to user input
-  username = payload.username;
-  console.log(`♫${payload.username}♫ has entered the Chatter©!`)
+  username = payload;
+  console.log(`♫${payload}♫ has entered the Chatter©!`);
+  replStart();
 });
 
 socket.on('odd-number-of-users', payload => {
@@ -75,7 +76,7 @@ socket.on('authors', payload => {
 socket.on('message', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
-  if(usernameReceived === username){
+  if (usernameReceived === username) {
     console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
   } else {
     console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
@@ -96,17 +97,19 @@ socket.on('question', (payload) => {
 // })
 
 
-//this evaluates all text enter into the terminal after the user hits enter :)
-repl.start({
-  //use this to set a prompt at the beginning of the terminal command line
-  prompt: ``,
-  //this is whatever text was last entered into the terminal by the user
-  eval: (text) => {
-    //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
-    //this prevents multiple lines of your own text staying in the terminal when posting your messages
-    process.stdout.write('\u001b[1F');
+function replStart() {
+  //this evaluates all text enter into the terminal after the user hits enter :)
+  repl.start({
+    //use this to set a prompt at the beginning of the terminal command line
+    prompt: ``,
+    //this is whatever text was last entered into the terminal by the user
+    eval: (text) => {
+      //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
+      //this prevents multiple lines of your own text staying in the terminal when posting your messages
+      process.stdout.write('\u001b[1F');
 
-    //this creates an automatic 'message' event using the username and text entered as the payload
-    socket.send({text, username});
-  },
-})
+      //this creates an automatic 'message' event using the username and text entered as the payload
+      socket.send({ text, username });
+    },
+  })
+}
