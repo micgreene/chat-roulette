@@ -47,18 +47,23 @@ userNameSp.on('connection', (socket) => {
   socket.on('login-credentials', payload => {
     basic(payload.username, payload.password);
     addNewUser(payload.username)
+
+    winnerObj.username = payload.username;
+    winnerObj.id = socket.id;
+    winnerObj.socket = socket;
+    winners.push(winnerObj);
+
     socket.broadcast.emit('joined-server', payload.username );
     socket.emit('joined-server', payload.username );
   })
 
   socket.on('signup-credentials', payload => {
-    console.log(payload);
     var user = new userModel({ username: payload.username, password: payload.password });
     user.save( (err, user) => {
       if (err) { console.log(err.message || "Error creating new user") }
       else { console.log(`You have successfully created an account ${payload.username}`) }
     })
-    addNewUser(payload.username)
+    addNewUser(payload.username);
     socket.broadcast.emit('joined-server', { username: payload.username });
     socket.emit('joined-server', { username: payload.username });
   })
@@ -72,6 +77,8 @@ userNameSp.on('connection', (socket) => {
     //*******************COMMANDS LIST********************/
     //----------List of Commands Users/Admins May Enter Into Terminal
     //command strings are all prefaced by **
+
+    emojis(payload, socket);
 
     //**authors returns the names and Linked-in urls of all team members
     if (payload.text.split('\n')[0] === '**authors') {
@@ -108,6 +115,18 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
+function emojis(payload, socket){  
+  if (payload.text.split('\n')[0] === '**lol') { 
+    let newPayload = { 
+      text: '"(^v^)"\n', 
+      username: payload.username 
+    }
+
+    socket.broadcast.emit('command', newPayload);
+    socket.emit('command', newPayload);
+  }
+}
+
 function addNewUser(username) {
   users[username] = new User(username);
   process.stdout.write(`${username} has connected to server`);
@@ -126,6 +145,10 @@ function authors() {
 }
 
 function shuffleUsers(socket){
+  if(winners.length === 0){
+    console.log('Error: winners[] array is empty!');
+  }
+
   if(winners.length % 2 !== 0){
     socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
   } else{
