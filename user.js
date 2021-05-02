@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
-const { prototype } = require('stream');
 const inquirer = require('inquirer');
 
 //configure environmental variables
@@ -19,8 +18,11 @@ const host = `http://localhost:${port}`;
 const socket = io.connect(`${host}/chatter`);
 
 //create a username and color for your text
+
 let username = 'Guest';
-const textColor = chalk.bold.purple;
+//so we can make this modular later
+const textColor = chalk.bold.blue;
+
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
@@ -50,7 +52,15 @@ socket.on('connect', () => {
 })
 
 socket.on('joined-server', payload => {
-  console.log(`♫${payload}♫ has entered the Chatter©!`)
+  //should reassign username to user input
+  username = payload;
+  console.log(`♫${payload}♫ has entered the Chatter©!`);
+  replStart();
+  socket.off('joined-server');
+});
+
+socket.on('odd-number-of-users', payload => {
+  console.log(payload)
 });
 
 socket.on('clear', payload => {
@@ -66,8 +76,27 @@ socket.on('authors', payload => {
 
 socket.on('message', (payload) => {
   const text = payload.text;
-  const username = payload.username;
-  console.log(chalk.green(`[${username}] ${text.split('\n')[0]}`))
+  const usernameReceived = payload.username;
+  if (usernameReceived === username) {
+    console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  } else {
+    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  }
+})
+
+socket.on('command', (payload) => {
+  const text = payload.text;
+  const usernameReceived = payload.username;
+  process.stdout.write('\u001b[1F');
+  if (usernameReceived === username) {
+    console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  } else {
+    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+  }
+})
+
+socket.on('question', (payload) => {
+  console.log(payload.question, '\n', payload.choices);
 })
 
 //eventual events we'll probably need
@@ -80,17 +109,19 @@ socket.on('message', (payload) => {
 // })
 
 
-//this evaluates all text enter into the terminal after the user hits enter
-repl.start({
-  //use this to set a prompt at the beginning of the terminal command line
-  prompt: ``,
-  //this is whatever text was last entered into the terminal by the user
-  eval: (text) => {
-    //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
-    //this prevents multiple lines of your own text staying in the terminal when posting your messages
-    process.stdout.write('\u001b[1F');
+function replStart() {
+  //this evaluates all text enter into the terminal after the user hits enter :)
+  repl.start({
+    //use this to set a prompt at the beginning of the terminal command line
+    prompt: ``,
+    //this is whatever text was last entered into the terminal by the user
+    eval: (text) => {
+      //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
+      //this prevents multiple lines of your own text staying in the terminal when posting your messages
+      process.stdout.write('\u001b[1F');
 
-    //this creates an automatic 'message' event using the username and text entered as the payload
-    socket.send({text, username});
-  },
-})
+      //this creates an automatic 'message' event using the username and text entered as the payload
+      socket.send({ text, username });
+    },
+  })
+}
