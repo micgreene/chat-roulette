@@ -54,7 +54,8 @@ socket.on('connect', () => {
 socket.on('joined-server', payload => {
   //should reassign username to user input
   username = payload.username;
-  console.log(`♫${payload.username}♫ has entered the Chatter©!`)
+  console.log("INSIDE JOINED SERVER PAYLOAD", payload);
+  console.log(`♫${payload}♫ has entered the Chatter©!`)
 });
 
 socket.on('odd-number-of-users', payload => {
