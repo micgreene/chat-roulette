@@ -73,5 +73,5 @@ let mathQuestions = [
 }];
 
 if (typeof module == 'object') {
-  module.exports = mathQuestions;    
+  module.exports = mathQuestions;
 }

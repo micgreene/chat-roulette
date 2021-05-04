@@ -14,47 +14,64 @@ const port = process.env.PORT;
 //create reference to host url
 const host = `https://5f237673f2b6.ngrok.io`;
 
+// const host = `http://localhost:${port}`;
+const host = 'https://5f237673f2b6.ngrok.io';
+
+
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
 
-//create a username and color for your text
-
+// username and textColor values are overwritten in the configs event
 let username = 'Guest';
-//so we can make this modular later
-const textColor = chalk.bold.blue;
+var textColor = chalk.bold.blue;
+
 
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
+  login();
+})
 
-  var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
+// !! This was intended to make styling an input selection but it's breaking
+// !! and I haven't figured out how to fix yet! -Anne
+// socket.on('config', payload => {
+//   //should reassign username to user input
+//   username = payload;
+//   const userConfigs = [
+//     { type: 'list', name: 'textColor', message: 'Select your text color: ', choices: ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray'] },
+//     { type: 'list', name: 'style', message: 'Select your text style: ', choices: ['bold', 'dim', 'italic', 'underline', 'inverse'] }
+//   ]
+//   inquirer.prompt(userConfigs)
+//   .then(answer => {
+//     textColor = `chalk.${answer.style}.${answer.textColor}`
+//     socket.emit('configs-complete', payload);
+//   })
+//   .catch(err => { console.log(err) });
+// })
 
-  inquirer.prompt(loginPrompt)
-    .then(answer => {
-      var questions = [
-        { type: 'input', name: 'username', message: 'Enter your username: ' },
-        { type: 'input', name: 'password', message: 'Enter your password: ' }
-      ]
-      if (answer.account === 'Yes') {
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('login-credentials', { username: answers.username, password: answers.password });
-          })
-          .catch(err => { console.log(err) })
-      } else {
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('signup-credentials', { username: answers.username, password: answers.password });
-          })
-      }
-    })
-    .catch(err => { console.log(err) });
+socket.on('login-error', payload => {
+  console.log(`There was an error processing your login.\n${payload}`);
+
+  inquirer.prompt([
+    { type: 'list', name: 'retry', message: 'Would you like to try again?', choices: ['Yes', 'No'] }
+  ])
+  .then(answer => {
+    if (answer.retry === 'Yes') {
+      login();
+    } else {
+      console.log("Goodbye!");
+      socket.disconnect();
+    }
+  })
+  .catch((err) => {
+    console.log(err);
+  })
 })
 
 socket.on('joined-server', payload => {
-  //should reassign username to user input
   username = payload;
-  console.log(`♫${payload}♫ has entered the Chatter©!`);
+  console.log(`\n♫${payload}♫ has entered the Chatter©!`);
+
   replStart();
   socket.off('joined-server');
 });
@@ -109,6 +126,7 @@ socket.on('correct', (payload) => {
 
 socket.on('incorrect', (payload) => {
   console.log(chalk.red(payload));
+
 })
 
 //eventual events we'll probably need
@@ -136,4 +154,30 @@ function replStart() {
       socket.send({ text, username });
     },
   })
+
 }
+
+function login() {
+  var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
+  inquirer.prompt(loginPrompt)
+    .then(answer => {
+      var questions = [
+        { type: 'input', name: 'username', message: 'Enter your username: ' },
+        { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
+      ]
+      if (answer.account === 'Yes') {
+        inquirer.prompt(questions)
+          .then(answers => {
+            socket.emit('login-credentials', { username: answers.username, password: answers.secret });
+          })
+          .catch(err => { console.log(err) })
+      } else {
+        inquirer.prompt(questions)
+          .then(answers => {
+            socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
+          })
+      }
+    })
+    .catch(err => { console.log(err) });
+}
+

@@ -46,29 +46,47 @@ userNameSp.on('connection', (socket) => {
   socket.join('lobby');
   console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
 
-  socket.on('login-credentials', payload => {
-    basic(payload.username, payload.password);
-    addNewUser(payload.username)
+  socket.on('login-credentials', async (payload) => {
+    let reply = await basic(payload.username, payload.password);
+    if (reply.error) {
+      // this condition is entered if login credentials are incorrect
+      console.log(reply.error.message)
+      socket.emit("login-error", reply.error.message);
+    } else { // there was no basic auth error, payload = user object
+      addNewUser(payload.username)
+      winnerObj.username = payload.username;
+      winnerObj.id = socket.id;
+      winnerObj.socket = socket;
+      winners.push(winnerObj);
+      // socket.emit('config', payload.username);
+      socket.emit('joined-server', payload.username);
+    }
 
-    winnerObj.username = payload.username;
-    winnerObj.id = socket.id;
-    winnerObj.socket = socket;
-    winners.push(winnerObj);
-
-    socket.broadcast.emit('joined-server', payload.username );
-    socket.emit('joined-server', payload.username );
   })
 
   socket.on('signup-credentials', payload => {
     var user = new userModel({ username: payload.username, password: payload.password });
     user.save( (err, user) => {
-      if (err) { console.log(err.message || "Error creating new user") }
-      else { console.log(`You have successfully created an account ${payload.username}`) }
-    })
-    addNewUser(payload.username);
-    socket.broadcast.emit('joined-server', { username: payload.username });
-    socket.emit('joined-server', { username: payload.username });
+      if (err) {
+        console.log(err.message || "Error creating new user, no error message provided")
+        let message = `There was an error creating the account`;
+        socket.emit('login-error', message);
+        return;
+      } else {
+        console.log(`You have successfully created an account ${payload.username}`) }
+        addNewUser(payload.username);
+        // socket.emit('config', payload.username);
+        socket.emit('joined-server', payload.username);
+      })
   })
+
+  // !! Logic for styling the user text, but it's not working yet
+  // socket.on('configs-complete', payload => {
+  //   // the payload it just the user name of whoever just joined
+  //   // right now it's broadcasting to everyone
+  //   socket.broadcast.emit('joined-server', payload);
+  // })
+
 
   // submitting a string in the terminal will automatically create a message event via repl
   socket.on('message', async payload => {
@@ -129,11 +147,12 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
-function emojis(payload, socket){  
-  if (payload.text.split('\n')[0] === '**lol') { 
-    let newPayload = { 
-      text: '"(^v^)"\n', 
-      username: payload.username 
+function emojis(payload, socket){
+  if (payload.text.split('\n')[0] === '**lol') {
+    let newPayload = {
+      text: '"(^v^)"\n',
+      username: payload.username
+
     }
 
     socket.broadcast.emit('command', newPayload);
@@ -154,7 +173,7 @@ function authors() {
     cody: {name: 'Cody Carpenter     ', linkedin: 'url'},
     mike: {name: 'Michael Greene     ', linkedin: 'url'}
   };
-  
+
   return projectAuthors;
 }
 
@@ -171,7 +190,6 @@ function shuffleUsers(socket){
     for(let i = 0; i < winners.length; i++){
       winners[i].socket.leave('lobby');
       winners[i].socket.join(roomNo);
-      
       if(counter % 2 === 0){
         counter = 1;
         roomNo++;
@@ -184,6 +202,8 @@ function shuffleUsers(socket){
 
 // function to start game logic
 function startGame(socket, question) {
+  socket.emit('question', question);
+
   // resets the scores
   Object.keys(users).forEach(value => {
     users[value].answer = question.answer;
