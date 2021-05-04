@@ -25,6 +25,7 @@ const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
 const { question } = require('readline-sync');
+const { error } = require('console');
 
 //create an array to hold references to each connected user
 const users = {
@@ -70,7 +71,7 @@ userNameSp.on('connection', (socket) => {
   })
 
   // submitting a string in the terminal will automatically create a message event via repl
-  socket.on('message', payload => {
+  socket.on('message', async payload => {
     //send message to all on server
     socket.broadcast.emit('message', payload)
     socket.emit('message', payload)
@@ -95,18 +96,21 @@ userNameSp.on('connection', (socket) => {
 
     // **start starts the chat game logic
     if (payload.text.split('\n')[0] === '**start') { 
-      let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
-      startGame(socket, question);
+      let questions = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
+      startGame(socket, questions);
     }
 
-    if (payload.text.split('\n')[0] === users[payload.username].answer) {
-      socket.emit('correct', 'Correct!');
-      users[payload.username].score++;
-      console.log(users[payload.username].score);
-    } else {
-      // socket.emit('incorrect', "Incorrect!");
+    try {
+      if (payload.text.split('\n')[0] === users[payload.username].answer) {
+        socket.emit('correct', 'Correct!');
+        users[payload.username].score++;
+        console.log(users[payload.username].score);
+        nextQuestion(mathQuestions[Math.floor(Math.random() * mathQuestions.length)]);
+      }
     }
-
+    catch {
+      
+    }
   })
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
@@ -187,11 +191,19 @@ function startGame(socket, question) {
   });
   
   socket.emit('question', question);
+  socket.broadcast.emit('question', question);
 
   //clears text from screen for important alerts
   //*see user.js for 'clear' event handler
   socket.broadcast.emit('clear-terminal');
   socket.emit('clear-terminal');
+}
+
+function nextQuestion(questions) {
+  Object.keys(users).forEach(value => {
+    users[value].answer = questions.answer;
+  })
+  userNameSp.emit('nextQuestion', questions)
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
