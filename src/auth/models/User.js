@@ -40,12 +40,13 @@ UserSchema.pre('save', async function() {
 // Basic authorization
 UserSchema.statics.authenticateBasic = async function(username, password) {
   const user = await this.findOne({ username });
+  if (!user) { return { error: { message: 'Username not found' }} }
   const valid = await bcrypt.compare(password, user.password);
-  // console.log("Valid", valid);
   if (valid) {
     return user
+  } else {
+    return { error: { message: 'Invalid password' } }
   }
-  throw new Error('Invalid User');
 }
 
 // Bearer authorization
