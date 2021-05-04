@@ -99,6 +99,14 @@ socket.on('question', (payload) => {
   console.log(payload.question, '\n', payload.choices);
 })
 
+socket.on('correct', (payload) => {
+  console.log(chalk.green(payload));
+})
+
+socket.on('incorrect', (payload) => {
+  console.log(chalk.red(payload));
+})
+
 //eventual events we'll probably need
 // socket.on('round', payload => {
 //   console.log(`${payload.username} WON THE ROUND!!!`)

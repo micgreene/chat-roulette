@@ -24,6 +24,7 @@ mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
+const { question } = require('readline-sync');
 
 //create an array to hold references to each connected user
 const users = {
@@ -97,7 +98,16 @@ userNameSp.on('connection', (socket) => {
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
     }
-  });
+
+    if (payload.text.split('\n')[0] === users[payload.username].answer) {
+      socket.emit('correct', 'Correct!');
+      users[payload.username].score++;
+      console.log(users[payload.username].score);
+    } else {
+      // socket.emit('incorrect', "Incorrect!");
+    }
+
+  })
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
   socket.on('disconnect', () =>{
@@ -170,11 +180,13 @@ function shuffleUsers(socket){
 
 // function to start game logic
 function startGame(socket, question) {
-  socket.emit('question', question);
   // resets the scores
   Object.keys(users).forEach(value => {
+    users[value].answer = question.answer;
     users[value].score = 0;
   });
+  
+  socket.emit('question', question);
 
   //clears text from screen for important alerts
   //*see user.js for 'clear' event handler
