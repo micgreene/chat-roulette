@@ -13,7 +13,7 @@ const port = process.env.PORT;
 
 //create reference to host url
 // const host = `http://localhost:${port}`;
-const host = 'http://8ac01961dcfe.ngrok.io';
+const host = 'https://5f237673f2b6.ngrok.io';
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
@@ -29,7 +29,7 @@ socket.on('connect', () => {
 })
 
 // !! This was intended to make styling an input selection but it's breaking
-// !! and I haven't figured out how to fix yet! -Anne 
+// !! and I haven't figured out how to fix yet! -Anne
 // socket.on('config', payload => {
 //   //should reassign username to user input
 //   username = payload;
