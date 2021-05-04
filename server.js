@@ -113,6 +113,9 @@ userNameSp.on('connection', (socket) => {
 
     // **start starts the chat game logic
     if (payload.text.split('\n')[0] === '**start') { 
+      shuffleUsers(socket);
+      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
+
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
     }
@@ -198,8 +201,6 @@ function shuffleUsers(socket){
 
 // function to start game logic
 function startGame(socket, question) {
-  socket.emit('question', question);
-
   // resets the scores
   Object.keys(users).forEach(value => {
     users[value].answer = question.answer;
@@ -207,6 +208,7 @@ function startGame(socket, question) {
   });
   
   socket.emit('question', question);
+  socket.broadcast.emit('question', question);
 
   //clears text from screen for important alerts
   //*see user.js for 'clear' event handler

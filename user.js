@@ -6,14 +6,19 @@ const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
 const inquirer = require('inquirer');
+const mute = require('mute');
+
+//temporarily mutes/unmutes process.std.out by using unmute()
+const unmute = mute();
+unmute();//unmutes
 
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
 
 //create reference to host url
-// const host = `http://localhost:${port}`;
-const host = 'https://5f237673f2b6.ngrok.io';
+const host = `http://localhost:${port}`;
+//const host = 'https://5f237673f2b6.ngrok.io';
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
@@ -88,16 +93,6 @@ socket.on('authors', payload => {
   });
 })
 
-socket.on('message', (payload) => {
-  const text = payload.text;
-  const usernameReceived = payload.username;
-  if (usernameReceived === username) {
-    console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
-  } else {
-    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
-  }
-})
-
 socket.on('command', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
@@ -150,27 +145,49 @@ function replStart() {
 
 }
 
-function login() {
+function login() {  
   var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
   inquirer.prompt(loginPrompt)
-    .then(answer => {
+    .then(answer => {      
       var questions = [
         { type: 'input', name: 'username', message: 'Enter your username: ' },
         { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
       ]
       if (answer.account === 'Yes') {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
+            
+            socket.on('message', (payload) => {
+              const text = payload.text;
+              const usernameReceived = payload.username;
+              if (usernameReceived === username) {
+                console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
+              } else {
+                console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+              }
+            });
+
           })
           .catch(err => { console.log(err) })
       } else {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
+
+            socket.on('message', (payload) => {
+              const text = payload.text;
+              const usernameReceived = payload.username;
+              if (usernameReceived === username) {
+                console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
+              } else {
+                console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
+              }
+            });
           })
       }
     })
     .catch(err => { console.log(err) });
 }
-
