@@ -24,6 +24,7 @@ mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
+const { question } = require('readline-sync');
 
 //create an array to hold references to each connected user
 const users = {
@@ -59,6 +60,7 @@ userNameSp.on('connection', (socket) => {
       // socket.emit('config', payload.username);
       socket.emit('joined-server', payload.username);
     }
+
   })
 
   socket.on('signup-credentials', payload => {
@@ -84,6 +86,7 @@ userNameSp.on('connection', (socket) => {
   //   socket.broadcast.emit('joined-server', payload);
   // })
 
+
   // submitting a string in the terminal will automatically create a message event via repl
   socket.on('message', payload => {
     //send message to all on server
@@ -103,17 +106,26 @@ userNameSp.on('connection', (socket) => {
       socket.emit('authors', authorList);
     }
 
-    if (payload.text.split('\n')[0] === '**shuffle') {
+    if (payload.text.split('\n')[0] === '**shuffle') {      
       shuffleUsers(socket);
-      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
+      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);      
     }
 
     // **start starts the chat game logic
-    if (payload.text.split('\n')[0] === '**start') {
+    if (payload.text.split('\n')[0] === '**start') { 
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
     }
-  });
+
+    if (payload.text.split('\n')[0] === users[payload.username].answer) {
+      socket.emit('correct', 'Correct!');
+      users[payload.username].score++;
+      console.log(users[payload.username].score);
+    } else {
+      // socket.emit('incorrect', "Incorrect!");
+    }
+
+  })
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
   socket.on('disconnect', () =>{
@@ -136,6 +148,7 @@ function emojis(payload, socket){
     let newPayload = {
       text: '"(^v^)"\n',
       username: payload.username
+
     }
 
     socket.broadcast.emit('command', newPayload);
@@ -173,7 +186,6 @@ function shuffleUsers(socket){
     for(let i = 0; i < winners.length; i++){
       winners[i].socket.leave('lobby');
       winners[i].socket.join(roomNo);
-
       if(counter % 2 === 0){
         counter = 1;
         roomNo++;
@@ -187,10 +199,14 @@ function shuffleUsers(socket){
 // function to start game logic
 function startGame(socket, question) {
   socket.emit('question', question);
+
   // resets the scores
   Object.keys(users).forEach(value => {
+    users[value].answer = question.answer;
     users[value].score = 0;
   });
+  
+  socket.emit('question', question);
 
   //clears text from screen for important alerts
   //*see user.js for 'clear' event handler

@@ -23,6 +23,7 @@ let username = 'Guest';
 var textColor = chalk.bold.blue;
 
 
+
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
   login();
@@ -67,6 +68,7 @@ socket.on('login-error', payload => {
 socket.on('joined-server', payload => {
   username = payload;
   console.log(`\n♫${payload}♫ has entered the Chatter©!`);
+
   replStart();
   socket.off('joined-server');
 });
@@ -111,6 +113,15 @@ socket.on('question', (payload) => {
   console.log(payload.question, '\n', payload.choices);
 })
 
+socket.on('correct', (payload) => {
+  console.log(chalk.green(payload));
+})
+
+socket.on('incorrect', (payload) => {
+  console.log(chalk.red(payload));
+
+})
+
 //eventual events we'll probably need
 // socket.on('round', payload => {
 //   console.log(`${payload.username} WON THE ROUND!!!`)
@@ -136,6 +147,7 @@ function replStart() {
       socket.send({ text, username });
     },
   })
+
 }
 
 function login() {
@@ -161,3 +173,4 @@ function login() {
     })
     .catch(err => { console.log(err) });
 }
+
