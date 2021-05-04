@@ -6,7 +6,6 @@ const mongoose = require('mongoose');
 const repl = require('repl');
 const mathQuestions = require('./mathQuestions.js');
 
-
 //setup environmental variables
 require('dotenv').config();
 const port = process.env.PORT;
@@ -57,8 +56,7 @@ userNameSp.on('connection', (socket) => {
       winnerObj.id = socket.id;
       winnerObj.socket = socket;
       winners.push(winnerObj);
-      // socket.emit('config', payload.username);
-      socket.emit('joined-server', payload.username);
+      socket.emit('config', payload.username);
     }
 
   })
@@ -75,23 +73,30 @@ userNameSp.on('connection', (socket) => {
         console.log(`You have successfully created an account ${payload.username}`) }
         addNewUser(payload.username);
         // socket.emit('config', payload.username);
-        socket.emit('joined-server', payload.username);
+        socket.emit('config', payload.username);
       })
   })
 
   // !! Logic for styling the user text, but it's not working yet
-  // socket.on('configs-complete', payload => {
-  //   // the payload it just the user name of whoever just joined
-  //   // right now it's broadcasting to everyone
-  //   socket.broadcast.emit('joined-server', payload);
-  // })
-
+  socket.on('configs-complete', payload => {
+    // assigning the style selections to the user object
+    users[payload.username].textStyle = payload.textStyle;
+    users[payload.username].textColor = payload.textColor;
+    socket.emit('joined-server', payload.username);
+  })
 
   // submitting a string in the terminal will automatically create a message event via repl
-  socket.on('message', payload => {
+  socket.on('message', async payload => {
     //send message to all on server
-    socket.broadcast.emit('message', payload)
-    socket.emit('message', payload)
+    // socket.broadcast.emit sends to all except sender
+    // io.emit sends to all sockets (but we hae a namespace)
+    // socket.emit sends to 1
+    let updPayload = await { text: payload.text,
+                   username: payload.username,
+                   textColor: users[payload.username].textColor,
+                   textStyle: users[payload.username].textStyle,
+                 }
+    userNameSp.emit('message', updPayload);
 
     //*******************COMMANDS LIST********************/
     //----------List of Commands Users/Admins May Enter Into Terminal
@@ -106,13 +111,13 @@ userNameSp.on('connection', (socket) => {
       socket.emit('authors', authorList);
     }
 
-    if (payload.text.split('\n')[0] === '**shuffle') {      
+    if (payload.text.split('\n')[0] === '**shuffle') {
       shuffleUsers(socket);
-      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);      
+      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
     }
 
     // **start starts the chat game logic
-    if (payload.text.split('\n')[0] === '**start') { 
+    if (payload.text.split('\n')[0] === '**start') {
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
     }
@@ -205,7 +210,7 @@ function startGame(socket, question) {
     users[value].answer = question.answer;
     users[value].score = 0;
   });
-  
+
   socket.emit('question', question);
 
   //clears text from screen for important alerts
