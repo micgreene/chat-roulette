@@ -21,10 +21,14 @@ const host = `http://localhost:${port}`;
 //const host = 'https://5f237673f2b6.ngrok.io';
 
 
+const host = `http://localhost:${port}`;
+// const host = 'https://5f237673f2b6.ngrok.io';
+
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
 
-// username and textColor values are overwritten in the configs event
+// username is overwritten in config event
+// config event also sets the users color/style pref for display
 let username = 'Guest';
 var textColor = chalk.bold.blue;
 
@@ -37,22 +41,19 @@ socket.on('connect', () => {
   login();
 })
 
-// !! This was intended to make styling an input selection but it's breaking
-// !! and I haven't figured out how to fix yet! -Anne
-// socket.on('config', payload => {
-//   //should reassign username to user input
-//   username = payload;
-//   const userConfigs = [
-//     { type: 'list', name: 'textColor', message: 'Select your text color: ', choices: ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray'] },
-//     { type: 'list', name: 'style', message: 'Select your text style: ', choices: ['bold', 'dim', 'italic', 'underline', 'inverse'] }
-//   ]
-//   inquirer.prompt(userConfigs)
-//   .then(answer => {
-//     textColor = `chalk.${answer.style}.${answer.textColor}`
-//     socket.emit('configs-complete', payload);
-//   })
-//   .catch(err => { console.log(err) });
-// })
+
+socket.on('config', payload => {
+  username = payload;
+  const userConfigs = [
+    { type: 'list', name: 'textColor', message: 'Select your text color: ', choices: ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray'] },
+    { type: 'list', name: 'textStyle', message: 'Select your text style: ', choices: ['bold', 'dim', 'italic', 'underline', 'inverse'] }
+  ]
+  inquirer.prompt(userConfigs)
+  .then(answer => {
+    socket.emit('configs-complete', { username: username, textStyle: answer.textStyle, textColor: answer.textColor });
+  })
+  .catch(err => { console.log(err) });
+})
 
 socket.on('login-error', payload => {
   console.log(`There was an error processing your login.\n${payload}`);
@@ -74,9 +75,7 @@ socket.on('login-error', payload => {
 })
 
 socket.on('joined-server', payload => {
-  username = payload;
   console.log(`\n♫${payload}♫ has entered the Chatter©!`);
-
   replStart();
   socket.off('joined-server');
 });
@@ -90,6 +89,7 @@ socket.on('clear', payload => {
 })
 
 socket.on('authors', payload => {
+  clearCommand();
   console.log('Chatter© Development Team: ');
   Object.keys(payload).forEach(value => {
     console.log(`${payload[value].name}Linked-in url: ${payload[value].linkedin}`);
@@ -99,7 +99,7 @@ socket.on('authors', payload => {
 socket.on('command', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
-  process.stdout.write('\u001b[1F');
+  clearCommand();
   if (usernameReceived === username) {
     console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
   } else {
@@ -108,6 +108,7 @@ socket.on('command', (payload) => {
 })
 
 socket.on('question', (payload) => {
+  clearCommand();
   console.log(payload.question, '\n', payload.choices);
 })
 
@@ -132,6 +133,10 @@ socket.on('incorrect', (payload) => {
 // socket.on('winner', payload => {
 //   console.log(`${payload.username} WINS!!`)
 // })
+
+function clearCommand() {
+  process.stdout.write('\u001b[1F');
+}
 
 
 function replStart() {

@@ -9,7 +9,9 @@ class User{
     this.answer = null,
     this.score = 0,
     this.wins = 0,
-    this.losses = 0
+    this.losses = 0,
+    this.textColor = "blue",
+    this.textStyle = "bold"
     //,this.ties = 0
   };
 }
