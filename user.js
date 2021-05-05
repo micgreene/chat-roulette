@@ -6,13 +6,15 @@ const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
 const inquirer = require('inquirer');
-var mute = require('mute');
+const mute = require('mute');
+
+//temporarily mutes/unmutes process.std.out by using unmute()
+const unmute = mute();
+unmute();//unmutes
 
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
-
-//create reference to host url
 
 const host = `http://localhost:${port}`;
 // const host = `https://5f237673f2b6.ngrok.io`;
@@ -23,6 +25,11 @@ const socket = io.connect(`${host}/chatter`);
 // username is overwritten in config event
 // config event also sets the users color/style pref for display
 let username = 'Guest';
+var textColor = chalk.bold.blue;
+
+socket.on('disconnect', () => {
+  socket.off('message');
+});
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
@@ -82,10 +89,6 @@ socket.on('authors', payload => {
   Object.keys(payload).forEach(value => {
     console.log(`${payload[value].name}Linked-in url: ${payload[value].linkedin}`);
   });
-})
-
-socket.on('message', payload => {
-  console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
 })
 
 socket.on('command', (payload) => {
@@ -158,15 +161,26 @@ function login() {
         { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
       ]
       if (answer.account === 'Yes') {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
+
+            socket.on('message', (payload) => {
+              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+            });
+
           })
           .catch(err => { console.log(err) })
       } else {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
+
+            socket.on('message', (payload) => {
+                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+            });
           })
       }
     })
