@@ -13,8 +13,9 @@ dotenv.config();
 const port = process.env.PORT;
 
 //create reference to host url
-const host = `http://localhost:${port}`;
-// const host = 'https://5f237673f2b6.ngrok.io';
+
+// const host = `http://localhost:${port}`;
+const host = 'https://5f237673f2b6.ngrok.io';
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
@@ -98,6 +99,10 @@ socket.on('command', (payload) => {
 })
 
 socket.on('question', (payload) => {
+  console.log(payload.question, '\n', payload.choices);
+})
+
+socket.on('nextQuestion', (payload) => {
   console.log(payload.question, '\n', payload.choices);
 })
 
