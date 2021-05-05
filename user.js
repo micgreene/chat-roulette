@@ -165,7 +165,6 @@ function login() {
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
-
             socket.on('message', (payload) => {
               console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
             });

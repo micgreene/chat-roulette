@@ -125,7 +125,6 @@ userNameSp.on('connection', (socket) => {
       shuffleUsers(socket, payload.username);
       console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
-
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
     }
@@ -223,7 +222,6 @@ function shuffleUsers(socket, username) {
 // function to start game logic
 function startGame(socket, question) {
 
-
   Object.keys(users).forEach(value => {
     // assigns a correct answer to the player
     users[value].answer = question.answer;
@@ -235,7 +233,6 @@ function startGame(socket, question) {
     };
     userNameSp.to(users[value].id).emit('message', text);
   });
-
 
   socket.emit('question', question);
 
