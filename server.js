@@ -35,7 +35,7 @@ const users = {
 let winners = [];
 
 userNameSp.on('connection', (socket) => {
-  //creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
+  // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
   let winnerObj = {
     username: null,
     id: null,
