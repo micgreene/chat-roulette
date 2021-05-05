@@ -35,7 +35,8 @@ const users = {
 let winners = [];
 
 userNameSp.on('connection', (socket) => {
-  // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
+
+  //creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
   let winnerObj = {
     username: null,
     id: null,
@@ -133,7 +134,7 @@ userNameSp.on('connection', (socket) => {
       }
     }
     catch {
-      
+
     }
   })
 
@@ -210,13 +211,15 @@ function shuffleUsers(socket){
 function startGame(socket, question) {
   socket.emit('question', question);
 
-  // resets the scores
   Object.keys(users).forEach(value => {
+    // assigns a correct answer to the player
     users[value].answer = question.answer;
+    // resets the scores
     users[value].score = 0;
   });
 
-  socket.emit('question', question);
+  // socket.emit('question', question);
+
   socket.broadcast.emit('question', question);
 
   //clears text from screen for important alerts
