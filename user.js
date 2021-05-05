@@ -6,63 +6,66 @@ const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
 const inquirer = require('inquirer');
+var mute = require('mute');
 
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
 
 //create reference to host url
+
 const host = `http://localhost:${port}`;
+// const host = `https://5f237673f2b6.ngrok.io`;
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
 
-//create a username and color for your text
-
+// username is overwritten in config event
+// config event also sets the users color/style pref for display
 let username = 'Guest';
-//so we can make this modular later
-const textColor = chalk.bold.blue;
-
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
+  login();
+})
 
-  var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
 
-  inquirer.prompt(loginPrompt)
-    .then(answer => {
-      var questions = [
-        { type: 'input', name: 'username', message: 'Enter your username: ' },
-        { type: 'input', name: 'password', message: 'Enter your password: ' }
-      ]
-      if (answer.account === 'Yes') {
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('login-credentials', { username: answers.username, password: answers.password });
-          })
-          .catch(err => { console.log(err) })
-      } else {
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('signup-credentials', { username: answers.username, password: answers.password });
-          })
-      }
-    })
-    .catch(err => { console.log(err) });
+socket.on('config', payload => {
+  username = payload;
+  const userConfigs = [
+    { type: 'list', name: 'textColor', message: 'Select your text color: ', choices: ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray'] },
+    { type: 'list', name: 'textStyle', message: 'Select your text style: ', choices: ['bold', 'dim', 'italic', 'underline', 'inverse'] }
+  ]
+  inquirer.prompt(userConfigs)
+  .then(answer => {
+    socket.emit('configs-complete', { username: username, textStyle: answer.textStyle, textColor: answer.textColor });
+  })
+  .catch(err => { console.log(err) });
+})
+
+socket.on('login-error', payload => {
+  console.log(`There was an error processing your login.\n${payload}`);
+
+  inquirer.prompt([
+    { type: 'list', name: 'retry', message: 'Would you like to try again?', choices: ['Yes', 'No'] }
+  ])
+  .then(answer => {
+    if (answer.retry === 'Yes') {
+      login();
+    } else {
+      console.log("Goodbye!");
+      socket.disconnect();
+    }
+  })
+  .catch((err) => {
+    console.log(err);
+  })
 })
 
 socket.on('joined-server', payload => {
-  //should reassign username to user input
-<<<<<<< HEAD
-  username = payload.username;
-  console.log("INSIDE JOINED SERVER PAYLOAD", payload);
-  console.log(`♫${payload}♫ has entered the Chatter©!`)
-=======
-  username = payload;
-  console.log(`♫${payload}♫ has entered the Chatter©!`);
+  console.log(`\n♫${payload}♫ has entered the Chatter©!`);
   replStart();
   socket.off('joined-server');
->>>>>>> 870f262b59aeb79e0bafc63266963ad5cf10474c
 });
 
 socket.on('odd-number-of-users', payload => {
@@ -74,26 +77,21 @@ socket.on('clear', payload => {
 })
 
 socket.on('authors', payload => {
+  clearCommand();
   console.log('Chatter© Development Team: ');
   Object.keys(payload).forEach(value => {
     console.log(`${payload[value].name}Linked-in url: ${payload[value].linkedin}`);
   });
 })
 
-socket.on('message', (payload) => {
-  const text = payload.text;
-  const usernameReceived = payload.username;
-  if (usernameReceived === username) {
-    console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
-  } else {
-    console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
-  }
+socket.on('message', payload => {
+  console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
 })
 
 socket.on('command', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
-  process.stdout.write('\u001b[1F');
+  clearCommand();
   if (usernameReceived === username) {
     console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
   } else {
@@ -102,7 +100,21 @@ socket.on('command', (payload) => {
 })
 
 socket.on('question', (payload) => {
+  clearCommand();
   console.log(payload.question, '\n', payload.choices);
+})
+
+socket.on('nextQuestion', (payload) => {
+  console.log(payload.question, '\n', payload.choices);
+})
+
+socket.on('correct', (payload) => {
+  console.log(chalk.green(payload));
+})
+
+socket.on('incorrect', (payload) => {
+  console.log(chalk.red(payload));
+
 })
 
 //eventual events we'll probably need
@@ -113,6 +125,10 @@ socket.on('question', (payload) => {
 // socket.on('winner', payload => {
 //   console.log(`${payload.username} WINS!!`)
 // })
+
+function clearCommand() {
+  process.stdout.write('\u001b[1F');
+}
 
 
 function replStart() {
@@ -130,4 +146,29 @@ function replStart() {
       socket.send({ text, username });
     },
   })
+
+}
+
+function login() {
+  var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
+  inquirer.prompt(loginPrompt)
+    .then(answer => {
+      var questions = [
+        { type: 'input', name: 'username', message: 'Enter your username: ' },
+        { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
+      ]
+      if (answer.account === 'Yes') {
+        inquirer.prompt(questions)
+          .then(answers => {
+            socket.emit('login-credentials', { username: answers.username, password: answers.secret });
+          })
+          .catch(err => { console.log(err) })
+      } else {
+        inquirer.prompt(questions)
+          .then(answers => {
+            socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
+          })
+      }
+    })
+    .catch(err => { console.log(err) });
 }

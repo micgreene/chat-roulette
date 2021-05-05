@@ -6,7 +6,6 @@ const mongoose = require('mongoose');
 const repl = require('repl');
 const mathQuestions = require('./mathQuestions.js');
 
-
 //setup environmental variables
 require('dotenv').config();
 const port = process.env.PORT;
@@ -24,6 +23,8 @@ mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
+const { question } = require('readline-sync');
+const { error } = require('console');
 
 //create an array to hold references to each connected user
 const users = {
@@ -34,7 +35,7 @@ const users = {
 let winners = [];
 
 userNameSp.on('connection', (socket) => {
-  //creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
+  // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
   let winnerObj = {
     username: null,
     id: null,
@@ -44,35 +45,59 @@ userNameSp.on('connection', (socket) => {
   socket.join('lobby');
   console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
 
-  socket.on('login-credentials', payload => {
-    basic(payload.username, payload.password);
-    addNewUser(payload.username)
+  socket.on('login-credentials', async (payload) => {
+    let reply = await basic(payload.username, payload.password);
+    if (reply.error) {
+      // this condition is entered if login credentials are incorrect
+      console.log(reply.error.message)
+      socket.emit("login-error", reply.error.message);
+    } else { // there was no basic auth error, payload = user object
+      addNewUser(payload.username)
+      winnerObj.username = payload.username;
+      winnerObj.id = socket.id;
+      winnerObj.socket = socket;
+      winners.push(winnerObj);
+      socket.emit('config', payload.username);
+    }
 
-    winnerObj.username = payload.username;
-    winnerObj.id = socket.id;
-    winnerObj.socket = socket;
-    winners.push(winnerObj);
-
-    socket.broadcast.emit('joined-server', payload.username );
-    socket.emit('joined-server', payload.username );
   })
 
   socket.on('signup-credentials', payload => {
     var user = new userModel({ username: payload.username, password: payload.password });
     user.save( (err, user) => {
-      if (err) { console.log(err.message || "Error creating new user") }
-      else { console.log(`You have successfully created an account ${payload.username}`) }
-    })
-    addNewUser(payload.username);
-    socket.broadcast.emit('joined-server', { username: payload.username });
-    socket.emit('joined-server', { username: payload.username });
+      if (err) {
+        console.log(err.message || "Error creating new user, no error message provided")
+        let message = `There was an error creating the account`;
+        socket.emit('login-error', message);
+        return;
+      } else {
+        console.log(`You have successfully created an account ${payload.username}`) }
+        addNewUser(payload.username);
+        // socket.emit('config', payload.username);
+        socket.emit('config', payload.username);
+      })
+  })
+
+  // !! Logic for styling the user text, but it's not working yet
+  socket.on('configs-complete', payload => {
+    // assigning the style selections to the user object
+    users[payload.username].textStyle = payload.textStyle;
+    users[payload.username].textColor = payload.textColor;
+    socket.emit('joined-server', payload.username);
   })
 
   // submitting a string in the terminal will automatically create a message event via repl
-  socket.on('message', payload => {
+  socket.on('message', async payload => {
     //send message to all on server
-    socket.broadcast.emit('message', payload)
-    socket.emit('message', payload)
+    // socket.broadcast.emit sends to all except sender
+    // io.emit sends to all sockets (but we hae a namespace)
+    // socket.emit sends to 1
+    let updPayload = await { text: payload.text,
+                   username: payload.username,
+                   textColor: users[payload.username].textColor,
+                   textStyle: users[payload.username].textStyle,
+                 }
+    userNameSp.emit('message', updPayload);
 
     //*******************COMMANDS LIST********************/
     //----------List of Commands Users/Admins May Enter Into Terminal
@@ -87,17 +112,30 @@ userNameSp.on('connection', (socket) => {
       socket.emit('authors', authorList);
     }
 
-    if (payload.text.split('\n')[0] === '**shuffle') {      
+    if (payload.text.split('\n')[0] === '**shuffle') {
       shuffleUsers(socket);
-      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);      
+      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
     }
 
     // **start starts the chat game logic
-    if (payload.text.split('\n')[0] === '**start') { 
+
+    if (payload.text.split('\n')[0] === '**start') {
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
     }
-  });
+
+    try {
+      if (payload.text.split('\n')[0] === users[payload.username].answer) {
+        socket.emit('correct', 'Correct!');
+        users[payload.username].score++;
+        console.log(users[payload.username].score);
+        nextQuestion(mathQuestions[Math.floor(Math.random() * mathQuestions.length)]);
+      }
+    }
+    catch {
+      
+    }
+  })
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
   socket.on('disconnect', () =>{
@@ -115,11 +153,12 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
-function emojis(payload, socket){  
-  if (payload.text.split('\n')[0] === '**lol') { 
-    let newPayload = { 
-      text: '"(^v^)"\n', 
-      username: payload.username 
+function emojis(payload, socket){
+  if (payload.text.split('\n')[0] === '**lol') {
+    let newPayload = {
+      text: '"(^v^)"\n',
+      username: payload.username
+
     }
 
     socket.broadcast.emit('command', newPayload);
@@ -140,7 +179,7 @@ function authors() {
     cody: {name: 'Cody Carpenter     ', linkedin: 'url'},
     mike: {name: 'Michael Greene     ', linkedin: 'url'}
   };
-  
+
   return projectAuthors;
 }
 
@@ -157,7 +196,6 @@ function shuffleUsers(socket){
     for(let i = 0; i < winners.length; i++){
       winners[i].socket.leave('lobby');
       winners[i].socket.join(roomNo);
-      
       if(counter % 2 === 0){
         counter = 1;
         roomNo++;
@@ -171,15 +209,29 @@ function shuffleUsers(socket){
 // function to start game logic
 function startGame(socket, question) {
   socket.emit('question', question);
-  // resets the scores
+
   Object.keys(users).forEach(value => {
+    // assigns a correct answer to the player
+    users[value].answer = question.answer;
+    // resets the scores
     users[value].score = 0;
   });
+  
+  // socket.emit('question', question);
+
+  socket.broadcast.emit('question', question);
 
   //clears text from screen for important alerts
   //*see user.js for 'clear' event handler
   socket.broadcast.emit('clear-terminal');
   socket.emit('clear-terminal');
+}
+
+function nextQuestion(questions) {
+  Object.keys(users).forEach(value => {
+    users[value].answer = questions.answer;
+  })
+  userNameSp.emit('nextQuestion', questions)
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
