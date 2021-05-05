@@ -66,18 +66,23 @@ userNameSp.on('connection', (socket) => {
 
   socket.on('signup-credentials', payload => {
     var user = new userModel({ username: payload.username, password: payload.password });
-    user.save( (err, user) => {
+    user.save((err, user) => {
       if (err) {
         console.log(err.message || "Error creating new user, no error message provided")
         let message = `There was an error creating the account`;
         socket.emit('login-error', message);
         return;
       } else {
-        console.log(`You have successfully created an account ${payload.username}`) }
-        addNewUser(payload.username);
-        // socket.emit('config', payload.username);
-        socket.emit('joined-server', payload.username);
-      })
+        console.log(`You have successfully created an account ${payload.username}`)
+      }
+      addNewUser(payload.username);
+      console.log('hello?')
+      console.log('users[payload.username].id', users[payload.username].id);
+      console.log('socket.id', socket.id);
+      users[payload.username].id = socket.id;
+      // socket.emit('config', payload.username);
+      socket.emit('joined-server', payload.username);
+    })
   })
 
   // !! Logic for styling the user text, but it's not working yet
@@ -107,15 +112,15 @@ userNameSp.on('connection', (socket) => {
       socket.emit('authors', authorList);
     }
 
-    if (payload.text.split('\n')[0] === '**shuffle') {      
-      shuffleUsers(socket);
-      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);      
+    if (payload.text.split('\n')[0] === '**shuffle') {
+      shuffleUsers(socket, payload.username);
+      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
     }
 
     // **start starts the chat game logic
-    if (payload.text.split('\n')[0] === '**start') { 
-      shuffleUsers(socket);
-      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
+    if (payload.text.split('\n')[0] === '**start') {
+      shuffleUsers(socket, payload.username);
+      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
 
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
@@ -130,16 +135,16 @@ userNameSp.on('connection', (socket) => {
       }
     }
     catch {
-      
+
     }
   })
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
-  socket.on('disconnect', () =>{
+  socket.on('disconnect', () => {
     console.log(socket.id, 'was disconnected!');
-    for(let i = 0; i < winners.length; i++){
-      if(winners[i].id === socket.id){
-        winners.splice(i,1);
+    for (let i = 0; i < winners.length; i++) {
+      if (winners[i].id === socket.id) {
+        winners.splice(i, 1);
       }
     }
   });
@@ -150,7 +155,7 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
-function emojis(payload, socket){
+function emojis(payload, socket) {
   if (payload.text.split('\n')[0] === '**lol') {
     let newPayload = {
       text: '"(^v^)"\n',
@@ -165,38 +170,44 @@ function emojis(payload, socket){
 
 function addNewUser(username) {
   users[username] = new User(username);
+  users[username].room = 'lobby';
   process.stdout.write(`${username} has connected to server`);
   process.stdout.write('\r\x1b[K');
 }
 
 function authors() {
   const projectAuthors = {
-    darci: { name: 'Dar-Ci Calhoun     ', linkedin: 'url'},
-    anne: {name: 'Anne Thorsteinson  ', linkedin: 'url'},
-    cody: {name: 'Cody Carpenter     ', linkedin: 'url'},
-    mike: {name: 'Michael Greene     ', linkedin: 'url'}
+    darci: { name: 'Dar-Ci Calhoun     ', linkedin: 'url' },
+    anne: { name: 'Anne Thorsteinson  ', linkedin: 'url' },
+    cody: { name: 'Cody Carpenter     ', linkedin: 'url' },
+    mike: { name: 'Michael Greene     ', linkedin: 'url' }
   };
 
   return projectAuthors;
 }
 
-function shuffleUsers(socket){
-  if(winners.length === 0){
+function shuffleUsers(socket, username) {
+  if (winners.length === 0) {
     console.log('Error: winners[] array is empty!');
   }
 
-  if(winners.length % 2 !== 0){
+  if (winners.length % 2 !== 0) {
     socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
-  } else{
+  } else {
     let counter = 1;
     let roomNo = 0;
-    for(let i = 0; i < winners.length; i++){
+    for (let i = 0; i < winners.length; i++) {
       winners[i].socket.leave('lobby');
       winners[i].socket.join(roomNo);
-      if(counter % 2 === 0){
+
+      Object.keys(users).forEach(value => {
+        users[value].room = roomNo;
+      });
+
+      if (counter % 2 === 0) {
         counter = 1;
         roomNo++;
-      } else if(counter % 2 !== 0){
+      } else if (counter % 2 !== 0) {
         counter++;
       }
     }
@@ -209,10 +220,13 @@ function startGame(socket, question) {
   Object.keys(users).forEach(value => {
     users[value].answer = question.answer;
     users[value].score = 0;
+    console.log(users[value]);
   });
-  
-  socket.emit('question', question);
-  socket.broadcast.emit('question', question);
+
+  // sending with acknowledgement
+  //io.in("room1").emit(
+  //socket.emit('question', question);
+  //socket.broadcast.emit('question', question);
 
   //clears text from screen for important alerts
   //*see user.js for 'clear' event handler
@@ -238,7 +252,7 @@ repl.start({
     process.stdout.write('\u001b[1F');
 
     //this creates an automatic 'message' event using the username and text entered as the payload
-    socket.send({text, username});
+    socket.send({ text, username });
   },
 })
 

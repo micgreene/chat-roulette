@@ -28,7 +28,9 @@ const socket = io.connect(`${host}/chatter`);
 let username = 'Guest';
 var textColor = chalk.bold.blue;
 
-
+socket.on('disconnect', () => {
+  socket.off('message');
+});
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
