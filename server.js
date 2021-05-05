@@ -62,7 +62,7 @@ userNameSp.on('connection', (socket) => {
       socket.emit('joined-server', payload.username);
     }
 
-  })
+  });
 
   socket.on('signup-credentials', payload => {
     var user = new userModel({ username: payload.username, password: payload.password });
@@ -78,9 +78,6 @@ userNameSp.on('connection', (socket) => {
       addNewUser(payload.username);
       console.log('hello?')
       console.log('users[payload.username].id', users[payload.username].id);
-      console.log('socket.id', socket.id);
-      users[payload.username].id = socket.id;
-      // socket.emit('config', payload.username);
       socket.emit('joined-server', payload.username);
     })
   })
@@ -201,7 +198,10 @@ function shuffleUsers(socket, username) {
       winners[i].socket.join(roomNo);
 
       Object.keys(users).forEach(value => {
-        users[value].room = roomNo;
+        if(winners[i].username === users[value])
+        {
+          users[value].room = roomNo;
+        } 
       });
 
       if (counter % 2 === 0) {
@@ -220,9 +220,7 @@ function startGame(socket, question) {
   Object.keys(users).forEach(value => {
     users[value].answer = question.answer;
     users[value].score = 0;
-    console.log(users[value]);
   });
-
   // sending with acknowledgement
   //io.in("room1").emit(
   //socket.emit('question', question);
