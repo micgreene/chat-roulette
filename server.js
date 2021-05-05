@@ -210,13 +210,15 @@ function shuffleUsers(socket){
 function startGame(socket, question) {
   socket.emit('question', question);
 
-  // resets the scores
   Object.keys(users).forEach(value => {
+    // assigns a correct answer to the player
     users[value].answer = question.answer;
+    // resets the scores
     users[value].score = 0;
   });
+  
+  // socket.emit('question', question);
 
-  socket.emit('question', question);
   socket.broadcast.emit('question', question);
 
   //clears text from screen for important alerts
