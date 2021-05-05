@@ -16,11 +16,6 @@ unmute();//unmutes
 dotenv.config();
 const port = process.env.PORT;
 
-//create reference to host url
-const host = `http://localhost:${port}`;
-//const host = 'https://5f237673f2b6.ngrok.io';
-
-
 const host = `http://localhost:${port}`;
 // const host = 'https://5f237673f2b6.ngrok.io';
 
@@ -178,7 +173,7 @@ function login() {
                 console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
               } else {
                 console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
-              }
+              } 
             });
 
           })

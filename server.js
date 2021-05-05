@@ -52,7 +52,7 @@ userNameSp.on('connection', (socket) => {
       console.log(reply.error.message)
       socket.emit("login-error", reply.error.message);
     } else { // there was no basic auth error, payload = user object
-      addNewUser(payload.username)
+      addNewUser(payload.username, socket)
       winnerObj.username = payload.username;
       winnerObj.id = socket.id;
       winnerObj.socket = socket;
@@ -71,11 +71,12 @@ userNameSp.on('connection', (socket) => {
         socket.emit('login-error', message);
         return;
       } else {
-        console.log(`You have successfully created an account ${payload.username}`) }
-        addNewUser(payload.username);
-        // socket.emit('config', payload.username);
-        socket.emit('config', payload.username);
-      })
+        console.log(`You have successfully created an account ${payload.username}`)
+      }
+      addNewUser(payload.username, socket);
+      // socket.emit('config', payload.username);
+      socket.emit('config', payload.username);
+    })
   })
 
   // !! Logic for styling the user text, but it's not working yet
@@ -92,11 +93,12 @@ userNameSp.on('connection', (socket) => {
     // socket.broadcast.emit sends to all except sender
     // io.emit sends to all sockets (but we hae a namespace)
     // socket.emit sends to 1
-    let updPayload = await { text: payload.text,
-                   username: payload.username,
-                   textColor: users[payload.username].textColor,
-                   textStyle: users[payload.username].textStyle,
-                 }
+    let updPayload = await {
+      text: payload.text,
+      username: payload.username,
+      textColor: users[payload.username].textColor,
+      textStyle: users[payload.username].textStyle,
+    }
     userNameSp.emit('message', updPayload);
 
     //*******************COMMANDS LIST********************/
@@ -114,12 +116,14 @@ userNameSp.on('connection', (socket) => {
 
     if (payload.text.split('\n')[0] === '**shuffle') {
       shuffleUsers(socket, payload.username);
-      console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
+      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
+
     }
 
     // **start starts the chat game logic
     if (payload.text.split('\n')[0] === '**start') {
       shuffleUsers(socket, payload.username);
+      console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
 
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
@@ -130,7 +134,6 @@ userNameSp.on('connection', (socket) => {
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
         socket.emit('correct', 'Correct!');
         users[payload.username].score++;
-        console.log(users[payload.username].score);
         nextQuestion(mathQuestions[Math.floor(Math.random() * mathQuestions.length)]);
       }
     }
@@ -168,9 +171,10 @@ function emojis(payload, socket) {
   }
 }
 
-function addNewUser(username) {
+function addNewUser(username, socket) {
   users[username] = new User(username);
   users[username].room = 'lobby';
+  users[username].id = socket.id;
   process.stdout.write(`${username} has connected to server`);
   process.stdout.write('\r\x1b[K');
 }
@@ -201,10 +205,9 @@ function shuffleUsers(socket, username) {
       winners[i].socket.join(roomNo);
 
       Object.keys(users).forEach(value => {
-        if(winners[i].username === users[value])
-        {
+        if (winners[i].username === users[value].username) {
           users[value].room = roomNo;
-        } 
+        }
       });
 
       if (counter % 2 === 0) {
@@ -219,16 +222,25 @@ function shuffleUsers(socket, username) {
 
 // function to start game logic
 function startGame(socket, question) {
-  socket.emit('question', question);
+  
 
   Object.keys(users).forEach(value => {
     // assigns a correct answer to the player
     users[value].answer = question.answer;
     // resets the scores
     users[value].score = 0;
+    let text = {
+      text: '********************GAME START!!!********************',
+      username: 'SYSTEM'
+    };
+    userNameSp.to(users[value].id).emit('message', text);
   });
+
+  
+  socket.emit('question', question);
+  
   // sending with acknowledgement
-  //io.in("room1").emit(
+
   //socket.emit('question', question);
   //socket.broadcast.emit('question', question);
 
