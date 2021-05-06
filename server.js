@@ -235,9 +235,11 @@ function startGame(socket, question) {
     users[value].score = 0;
     let text = {
       text: '********************GAME START!!!********************\n',
-      username: 'SYSTEM'
+      username: 'SYSTEM',
+      textStyle: users[value].textStyle,
+      textColor: users[value].textColor
     };
-    
+
     setTimeout(()=>{
       userNameSp.to(users[value].id).emit('message', text);
       countdown(users[value].id);
@@ -260,7 +262,9 @@ function nextQuestion(questions) {
 function countdown(id){
   let text = {
     text: '3\n',
-    username: 'SYSTEM'
+    username: 'SYSTEM',
+    textStyle: 'green',
+    textColor: 'bold'
   };
 
   setTimeout(()=>{
