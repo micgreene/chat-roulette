@@ -4,6 +4,7 @@ class User{
   constructor(username){
     this.id = null,
     this.username = username,
+    this.room = null,
     this.transcript = null,
     this.answer = null,
     this.score = 0,

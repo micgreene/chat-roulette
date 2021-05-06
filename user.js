@@ -6,13 +6,15 @@ const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
 const inquirer = require('inquirer');
-var mute = require('mute');
+const mute = require('mute');
+
+//temporarily mutes/unmutes process.std.out by using unmute()
+const unmute = mute();
+unmute();//unmutes
 
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
-
-//create reference to host url
 
 const host = `http://localhost:${port}`;
 // const host = 'https://5f237673f2b6.ngrok.io';
@@ -23,12 +25,16 @@ const socket = io.connect(`${host}/chatter`);
 // username is overwritten in config event
 // config event also sets the users color/style pref for display
 let username = 'Guest';
+var textColor = chalk.bold.blue;
+
+socket.on('disconnect', () => {
+  socket.off('message');
+});
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
   login();
 })
-
 
 socket.on('config', payload => {
   username = payload;
@@ -77,20 +83,17 @@ socket.on('clear', payload => {
 })
 
 socket.on('authors', payload => {
+  clearCommand();
   console.log('Chatter© Development Team: ');
   Object.keys(payload).forEach(value => {
     console.log(`${payload[value].name}Linked-in url: ${payload[value].linkedin}`);
   });
 })
 
-socket.on('message', payload => {
-  console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
-})
-
 socket.on('command', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
-  process.stdout.write('\u001b[1F');
+  clearCommand();
   if (usernameReceived === username) {
     console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
   } else {
@@ -99,6 +102,7 @@ socket.on('command', (payload) => {
 })
 
 socket.on('question', (payload) => {
+  clearCommand();
   console.log(payload.question, '\n', payload.choices);
 })
 
@@ -123,6 +127,10 @@ socket.on('incorrect', (payload) => {
 // socket.on('winner', payload => {
 //   console.log(`${payload.username} WINS!!`)
 // })
+
+function clearCommand() {
+  process.stdout.write('\u001b[1F');
+}
 
 
 function replStart() {
@@ -152,15 +160,26 @@ function login() {
         { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
       ]
       if (answer.account === 'Yes') {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
+
+            socket.on('message', (payload) => {
+              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+            });
+
           })
           .catch(err => { console.log(err) })
       } else {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
+
+            socket.on('message', (payload) => {
+                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+            });
           })
       }
     })
