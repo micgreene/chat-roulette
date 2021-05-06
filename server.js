@@ -237,6 +237,7 @@ function startGame(socket, question) {
       text: '********************GAME START!!!********************\n',
       username: 'SYSTEM'
     };
+    
     setTimeout(()=>{
       userNameSp.to(users[value].id).emit('message', text);
       countdown(users[value].id);
@@ -246,11 +247,6 @@ function startGame(socket, question) {
       }, 4000);
 
     }, 1000);
-    
-    
-    
-
-
   });
 }
 
