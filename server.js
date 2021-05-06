@@ -35,7 +35,10 @@ let questionsArr = [];
 //create an array of users who have won the current round of a game
 let winners = [];
 
-getQuestions();
+getQuestions()
+  .then( () => {
+    console.log(questionsArr);
+  })
 
 userNameSp.on('connection', (socket) => {
 
@@ -289,17 +292,20 @@ function countdown(id){
   }, 1000);
 }
 
-function getQuestions() {
+async function getQuestions() {
   const url = 'https://opentdb.com/api.php?amount=10'
 
-  superagent.get(url)
+  await superagent.get(url)
     .then (resultData => {
       const arrayFromBody = resultData.body.results;
-      Object.values(arrayFromBody).forEach(value => {
-        questionsArr.push(value);
+      Object.values(arrayFromBody).forEach(question => {
+        question.all_answers = question.incorrect_answers.concat(question.correct_answer);
+        questionsArr.push(question);
       })
-      console.log(questionsArr);
+      // console.log(questionsArr);
+      return questionsArr;
     })
+    // console.log(questionsArr);
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
@@ -316,6 +322,6 @@ repl.start({
     socket.send({ text, username });
   },
 })
-console.log(questionsArr);
+
 
 console.log(`Server Listening on Port: ${port}.`)
