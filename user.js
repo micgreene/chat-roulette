@@ -17,7 +17,7 @@ dotenv.config();
 const port = process.env.PORT;
 
 const host = `http://localhost:${port}`;
-// const host = 'https://5f237673f2b6.ngrok.io';
+// const host = `https://5f237673f2b6.ngrok.io`;
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
@@ -167,13 +167,7 @@ function login() {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
             
             socket.on('message', (payload) => {
-              const text = payload.text;
-              const usernameReceived = payload.username;
-              if (usernameReceived === username) {
-                console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
-              } else {
-                console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
-              } 
+              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
             });
 
           })
@@ -185,13 +179,7 @@ function login() {
             socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
 
             socket.on('message', (payload) => {
-              const text = payload.text;
-              const usernameReceived = payload.username;
-              if (usernameReceived === username) {
-                console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
-              } else {
-                console.log(chalk.green(`[${usernameReceived}] ${text.split('\n')[0]}`));
-              }
+                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
             });
           })
       }
