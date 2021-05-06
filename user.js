@@ -17,7 +17,7 @@ dotenv.config();
 const port = process.env.PORT;
 
 const host = `http://localhost:${port}`;
-// const host = `https://5f237673f2b6.ngrok.io`;
+// const host = 'https://5f237673f2b6.ngrok.io';
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
@@ -35,7 +35,6 @@ socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
   login();
 })
-
 
 socket.on('config', payload => {
   username = payload;
@@ -152,10 +151,10 @@ function replStart() {
 
 }
 
-function login() {  
+function login() {
   var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
   inquirer.prompt(loginPrompt)
-    .then(answer => {      
+    .then(answer => {
       var questions = [
         { type: 'input', name: 'username', message: 'Enter your username: ' },
         { type: 'password', name: 'secret', message: 'Enter your password. Must have at least 8 characters, a letter, number, and a symbol: ', mask: '*', validate: validatePassword}
@@ -165,7 +164,7 @@ function login() {
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
-            
+
             socket.on('message', (payload) => {
               console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
             });

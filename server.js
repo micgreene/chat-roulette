@@ -35,10 +35,14 @@ let questionsArr = [];
 //create an array of users who have won the current round of a game
 let winners = [];
 
-getQuestions();
+getQuestions()
+  .then( () => {
+    console.log(questionsArr);
+  })
 
 userNameSp.on('connection', (socket) => {
-  // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
+
+  //creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
   let winnerObj = {
     username: null,
     id: null,
@@ -127,7 +131,7 @@ userNameSp.on('connection', (socket) => {
     if (payload.text.split('\n')[0] === '**start') {
       shuffleUsers(socket, payload.username);
       console.log(users);
-      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
+      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
 
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
@@ -224,6 +228,7 @@ function shuffleUsers(socket, username) {
 }
 
 // function to start game logic
+
 function startGame(socket, question, questionsArr) {
   console.log(questionsArr);
 
@@ -287,17 +292,20 @@ function countdown(id){
   }, 1000);
 }
 
-function getQuestions() {
+async function getQuestions() {
   const url = 'https://opentdb.com/api.php?amount=10'
 
-  superagent.get(url)
+  await superagent.get(url)
     .then (resultData => {
       const arrayFromBody = resultData.body.results;
-      Object.values(arrayFromBody).forEach(value => {
-        questionsArr.push(value);
+      Object.values(arrayFromBody).forEach(question => {
+        question.all_answers = question.incorrect_answers.concat(question.correct_answer);
+        questionsArr.push(question);
       })
-      console.log(questionsArr);
+      // console.log(questionsArr);
+      return questionsArr;
     })
+    // console.log(questionsArr);
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
@@ -314,6 +322,6 @@ repl.start({
     socket.send({ text, username });
   },
 })
-console.log(questionsArr);
+
 
 console.log(`Server Listening on Port: ${port}.`)
