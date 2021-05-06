@@ -5,6 +5,7 @@ const inquirer = require('inquirer');
 const mongoose = require('mongoose');
 const repl = require('repl');
 const mathQuestions = require('./mathQuestions.js');
+const superagent = require('superagent');
 
 //setup environmental variables
 require('dotenv').config();
@@ -23,16 +24,18 @@ mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
-const { question } = require('readline-sync');
-const { error } = require('console');
 
 //create an array to hold references to each connected user
 const users = {
   // fills in as users connect
 };
 
+let questionsArr = [];
+
 //create an array of users who have won the current round of a game
 let winners = [];
+
+getQuestions();
 
 userNameSp.on('connection', (socket) => {
   // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
@@ -221,8 +224,8 @@ function shuffleUsers(socket, username) {
 }
 
 // function to start game logic
-function startGame(socket, question) {
-
+function startGame(socket, question, questionsArr) {
+  console.log(questionsArr);
 
   Object.keys(users).forEach(value => {
     //clears text from screen for important alerts
@@ -284,6 +287,19 @@ function countdown(id){
   }, 1000);
 }
 
+async function getQuestions() {
+  const url = 'https://opentdb.com/api.php?amount=10'
+
+  superagent.get(url)
+    .then (resultData => {
+      const arrayFromBody = await resultData.body.results;
+      Object.values(arrayFromBody).forEach(value => {
+        questionsArr.push(value);
+      })
+      console.log(questionsArr);
+    })
+}
+
 //this evaluates all text enter into the terminal after the user hits enter :)
 repl.start({
   //use this to set a prompt at the beginning of the terminal command line
@@ -298,5 +314,6 @@ repl.start({
     socket.send({ text, username });
   },
 })
+console.log(questionsArr);
 
 console.log(`Server Listening on Port: ${port}.`)
