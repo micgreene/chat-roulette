@@ -5,6 +5,7 @@ const inquirer = require('inquirer');
 const mongoose = require('mongoose');
 const repl = require('repl');
 const mathQuestions = require('./mathQuestions.js');
+const superagent = require('superagent');
 
 //setup environmental variables
 require('dotenv').config();
@@ -23,16 +24,18 @@ mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
-const { question } = require('readline-sync');
-const { error } = require('console');
 
 //create an array to hold references to each connected user
 const users = {
   // fills in as users connect
 };
 
+let questionsArr = [];
+
 //create an array of users who have won the current round of a game
 let winners = [];
+
+getQuestions();
 
 userNameSp.on('connection', (socket) => {
 
@@ -222,31 +225,36 @@ function shuffleUsers(socket, username) {
 }
 
 // function to start game logic
-function startGame(socket, question) {
 
+function startGame(socket, question, questionsArr) {
+  console.log(questionsArr);
 
   Object.keys(users).forEach(value => {
+    //clears text from screen for important alerts
+    //*see user.js for 'clear' event handler
+    //userNameSp.to(users[value].id).emit('clear-terminal', question);
+
     // assigns a correct answer to the player
     users[value].answer = question.answer;
     // resets the scores
     users[value].score = 0;
     let text = {
-      text: '********************GAME START!!!********************',
-      username: 'SYSTEM'
+      text: '********************GAME START!!!********************\n',
+      username: 'SYSTEM',
+      textStyle: users[value].textStyle,
+      textColor: users[value].textColor
     };
-    userNameSp.to(users[value].id).emit('message', text);
+
+    setTimeout(()=>{
+      userNameSp.to(users[value].id).emit('message', text);
+      countdown(users[value].id);
+
+      setTimeout(()=>{
+        userNameSp.to(users[value].id).emit('question', question);
+      }, 4000);
+
+    }, 1000);
   });
-
-  // socket.emit('question', question);
-
-  socket.broadcast.emit('question', question);
-
-  // sending with acknowledgement
-
-  //clears text from screen for important alerts
-  //*see user.js for 'clear' event handler
-  socket.broadcast.emit('clear-terminal');
-  socket.emit('clear-terminal');
 }
 
 function nextQuestion(questions) {
@@ -254,6 +262,44 @@ function nextQuestion(questions) {
     users[value].answer = questions.answer;
   })
   userNameSp.emit('nextQuestion', questions)
+}
+
+function countdown(id){
+  let text = {
+    text: '3\n',
+    username: 'SYSTEM',
+    textStyle: 'green',
+    textColor: 'bold'
+  };
+
+  setTimeout(()=>{
+    userNameSp.to(id).emit('message', text);
+    text.text = '2\n';
+
+    setTimeout(()=>{
+      userNameSp.to(id).emit('message', text);
+      text.text = '1\n';
+
+      setTimeout(()=>{
+        userNameSp.to(id).emit('message', text);
+      }, 1000);
+
+    }, 1000);
+
+  }, 1000);
+}
+
+function getQuestions() {
+  const url = 'https://opentdb.com/api.php?amount=10'
+
+  superagent.get(url)
+    .then (resultData => {
+      const arrayFromBody = resultData.body.results;
+      Object.values(arrayFromBody).forEach(value => {
+        questionsArr.push(value);
+      })
+      console.log(questionsArr);
+    })
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
@@ -270,5 +316,6 @@ repl.start({
     socket.send({ text, username });
   },
 })
+console.log(questionsArr);
 
 console.log(`Server Listening on Port: ${port}.`)
