@@ -158,7 +158,7 @@ function login() {
     .then(answer => {      
       var questions = [
         { type: 'input', name: 'username', message: 'Enter your username: ' },
-        { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
+        { type: 'password', name: 'secret', message: 'Enter your password. Must have at least 8 characters, a letter, number, and a symbol: ', mask: '*', validate: validatePassword}
       ]
       if (answer.account === 'Yes') {
         socket.off('message');
@@ -185,4 +185,25 @@ function login() {
       }
     })
     .catch(err => { console.log(err) });
+}
+
+function validatePassword(value) {
+
+  let errorMessage = '';
+
+  const eightCharacters = /.{8,}/;
+  const letter = /[A-Za-z]+/;
+  const number = /\d+/;
+  const symbol = /\W+/;
+
+  // if (eightCharacters.test(value) && letter.test(value) && number.test(value) && symbol.test(value)) { return true; }
+
+  if (!eightCharacters.test(value)) {errorMessage += 'not enough characters; '}
+  if (!letter.test(value)) {errorMessage += 'password must have at least one letter; '}
+  if (!number.test(value)) {errorMessage += 'password must have at least one number; '}
+  if (!symbol.test(value)) {errorMessage += 'password must have at least one symbol'}
+
+  if (!errorMessage.length) { return true; }
+
+  return errorMessage;
 }
