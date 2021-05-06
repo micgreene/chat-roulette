@@ -79,7 +79,8 @@ socket.on('odd-number-of-users', payload => {
   console.log(payload)
 });
 
-socket.on('clear', payload => {
+socket.on('clear-terminal', payload => {
+  //process.stdout.write('\033[2J');
   process.stdout.write('\x1B[2J');
 })
 
@@ -103,7 +104,6 @@ socket.on('command', (payload) => {
 })
 
 socket.on('question', (payload) => {
-  clearCommand();
   console.log(payload.question, '\n', payload.choices);
 })
 

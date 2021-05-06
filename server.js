@@ -222,32 +222,36 @@ function shuffleUsers(socket, username) {
 
 // function to start game logic
 function startGame(socket, question) {
-  
+
 
   Object.keys(users).forEach(value => {
+    //clears text from screen for important alerts
+    //*see user.js for 'clear' event handler
+    //userNameSp.to(users[value].id).emit('clear-terminal', question);
+
     // assigns a correct answer to the player
     users[value].answer = question.answer;
     // resets the scores
     users[value].score = 0;
     let text = {
-      text: '********************GAME START!!!********************',
+      text: '********************GAME START!!!********************\n',
       username: 'SYSTEM'
     };
-    userNameSp.to(users[value].id).emit('message', text);
+    setTimeout(()=>{
+      userNameSp.to(users[value].id).emit('message', text);
+      countdown(users[value].id);
+
+      setTimeout(()=>{
+        userNameSp.to(users[value].id).emit('question', question);
+      }, 4000);
+
+    }, 1000);
+    
+    
+    
+
+
   });
-
-  
-  socket.emit('question', question);
-  
-  // sending with acknowledgement
-
-  //socket.emit('question', question);
-  //socket.broadcast.emit('question', question);
-
-  //clears text from screen for important alerts
-  //*see user.js for 'clear' event handler
-  socket.broadcast.emit('clear-terminal');
-  socket.emit('clear-terminal');
 }
 
 function nextQuestion(questions) {
@@ -255,6 +259,29 @@ function nextQuestion(questions) {
     users[value].answer = questions.answer;
   })
   userNameSp.emit('nextQuestion', questions)
+}
+
+function countdown(id){
+  let text = {
+    text: '3\n',
+    username: 'SYSTEM'
+  };
+
+  setTimeout(()=>{
+    userNameSp.to(id).emit('message', text);
+    text.text = '2\n';
+
+    setTimeout(()=>{
+      userNameSp.to(id).emit('message', text);
+      text.text = '1\n';
+
+      setTimeout(()=>{
+        userNameSp.to(id).emit('message', text);
+      }, 1000);
+
+    }, 1000);
+
+  }, 1000);
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
