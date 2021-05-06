@@ -6,16 +6,18 @@ const io = require('socket.io-client');
 const repl = require('repl');
 const chalk = require('chalk');
 const inquirer = require('inquirer');
-var mute = require('mute');
+const mute = require('mute');
+
+//temporarily mutes/unmutes process.std.out by using unmute()
+const unmute = mute();
+unmute();//unmutes
 
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
 
-//create reference to host url
-
 const host = `http://localhost:${port}`;
-// const host = 'https://5f237673f2b6.ngrok.io';
+// const host = `https://5f237673f2b6.ngrok.io`;
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
@@ -23,6 +25,11 @@ const socket = io.connect(`${host}/chatter`);
 // username is overwritten in config event
 // config event also sets the users color/style pref for display
 let username = 'Guest';
+var textColor = chalk.bold.blue;
+
+socket.on('disconnect', () => {
+  socket.off('message');
+});
 
 socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
@@ -72,25 +79,23 @@ socket.on('odd-number-of-users', payload => {
   console.log(payload)
 });
 
-socket.on('clear', payload => {
+socket.on('clear-terminal', payload => {
+  //process.stdout.write('\033[2J');
   process.stdout.write('\x1B[2J');
 })
 
 socket.on('authors', payload => {
+  clearCommand();
   console.log('Chatter© Development Team: ');
   Object.keys(payload).forEach(value => {
     console.log(`${payload[value].name}Linked-in url: ${payload[value].linkedin}`);
   });
 })
 
-socket.on('message', payload => {
-  console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
-})
-
 socket.on('command', (payload) => {
   const text = payload.text;
   const usernameReceived = payload.username;
-  process.stdout.write('\u001b[1F');
+  clearCommand();
   if (usernameReceived === username) {
     console.log(chalk.blue(`[${usernameReceived}] ${text.split('\n')[0]}`));
   } else {
@@ -124,6 +129,10 @@ socket.on('incorrect', (payload) => {
 //   console.log(`${payload.username} WINS!!`)
 // })
 
+function clearCommand() {
+  process.stdout.write('\u001b[1F');
+}
+
 
 function replStart() {
   //this evaluates all text enter into the terminal after the user hits enter :)
@@ -143,24 +152,35 @@ function replStart() {
 
 }
 
-function login() {
+function login() {  
   var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
   inquirer.prompt(loginPrompt)
-    .then(answer => {
+    .then(answer => {      
       var questions = [
         { type: 'input', name: 'username', message: 'Enter your username: ' },
         { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
       ]
       if (answer.account === 'Yes') {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
+            
+            socket.on('message', (payload) => {
+              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+            });
+
           })
           .catch(err => { console.log(err) })
       } else {
+        socket.off('message');
         inquirer.prompt(questions)
           .then(answers => {
             socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
+
+            socket.on('message', (payload) => {
+                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+            });
           })
       }
     })
