@@ -287,12 +287,12 @@ function countdown(id){
   }, 1000);
 }
 
-async function getQuestions() {
+function getQuestions() {
   const url = 'https://opentdb.com/api.php?amount=10'
 
   superagent.get(url)
     .then (resultData => {
-      const arrayFromBody = await resultData.body.results;
+      const arrayFromBody = resultData.body.results;
       Object.values(arrayFromBody).forEach(value => {
         questionsArr.push(value);
       })
