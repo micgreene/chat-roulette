@@ -30,6 +30,7 @@ const users = {
   // fills in as users connect
 };
 
+// holds all of the question pulled from the trivia API
 let questionsArr = [];
 
 //create an array of users who have won the current round of a game
@@ -133,7 +134,8 @@ userNameSp.on('connection', (socket) => {
       console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
 
-      let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
+      // Math.floor(Math.random() * mathQuestions.length)
+      let question = questionsArr[Math.floor(Math.random() * mathQuestions.length)];
       startGame(socket, question);
     }
 
@@ -141,7 +143,7 @@ userNameSp.on('connection', (socket) => {
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
         socket.emit('correct', 'Correct!');
         users[payload.username].score++;
-        nextQuestion(mathQuestions[Math.floor(Math.random() * mathQuestions.length)]);
+        nextQuestion(questionsArr[Math.floor(Math.random() * mathQuestions.length)]);
       }
     }
     catch {
@@ -229,8 +231,7 @@ function shuffleUsers(socket, username) {
 
 // function to start game logic
 
-function startGame(socket, question, questionsArr) {
-  console.log(questionsArr);
+function startGame(socket, question) {
 
   Object.keys(users).forEach(value => {
     //clears text from screen for important alerts
@@ -238,7 +239,8 @@ function startGame(socket, question, questionsArr) {
     //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
     // assigns a correct answer to the player
-    users[value].answer = question.answer;
+    users[value].answer = question.correct_answer;
+
     // resets the scores
     users[value].score = 0;
     let text = {
@@ -262,7 +264,7 @@ function startGame(socket, question, questionsArr) {
 
 function nextQuestion(questions) {
   Object.keys(users).forEach(value => {
-    users[value].answer = questions.answer;
+    users[value].answer = questions.correct_answer;
   })
   userNameSp.emit('nextQuestion', questions)
 }
