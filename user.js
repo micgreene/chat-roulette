@@ -103,11 +103,11 @@ socket.on('command', (payload) => {
 })
 
 socket.on('question', (payload) => {
-  console.log(payload.question, '\n', payload.choices);
+  console.log(payload.question, '\n', payload.all_answers);
 })
 
 socket.on('nextQuestion', (payload) => {
-  console.log(payload.question, '\n', payload.choices);
+  console.log(payload.question, '\n', payload.all_answers);
 })
 
 socket.on('correct', (payload) => {

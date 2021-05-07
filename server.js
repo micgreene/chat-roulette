@@ -4,7 +4,6 @@
 const inquirer = require('inquirer');
 const mongoose = require('mongoose');
 const repl = require('repl');
-const mathQuestions = require('./mathQuestions.js');
 const superagent = require('superagent');
 
 //setup environmental variables
@@ -30,6 +29,7 @@ const users = {
   // fills in as users connect
 };
 
+// holds all of the question pulled from the trivia API
 let questionsArr = [];
 
 //create an array of users who have won the current round of a game
@@ -133,7 +133,7 @@ userNameSp.on('connection', (socket) => {
       console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
 
-      let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
+      let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       startGame(socket, question);
     }
 
@@ -141,7 +141,8 @@ userNameSp.on('connection', (socket) => {
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
         socket.emit('correct', 'Correct!');
         users[payload.username].score++;
-        nextQuestion(mathQuestions[Math.floor(Math.random() * mathQuestions.length)]);
+        console.log(users[payload.username.score]);
+        nextQuestion(questionsArr[Math.floor(Math.random() * questionsArr.length)]);
       }
     }
     catch {
@@ -229,8 +230,7 @@ function shuffleUsers(socket, username) {
 
 // function to start game logic
 
-function startGame(socket, question, questionsArr) {
-  console.log(questionsArr);
+function startGame(socket, question) {
 
   Object.keys(users).forEach(value => {
     //clears text from screen for important alerts
@@ -238,7 +238,8 @@ function startGame(socket, question, questionsArr) {
     //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
     // assigns a correct answer to the player
-    users[value].answer = question.answer;
+    users[value].answer = question.correct_answer;
+
     // resets the scores
     users[value].score = 0;
     let text = {
@@ -260,12 +261,30 @@ function startGame(socket, question, questionsArr) {
   });
 }
 
+async function getQuestions() {
+  const url = 'https://opentdb.com/api.php?amount=50'
+
+  await superagent.get(url)
+    .then (resultData => {
+      const arrayFromBody = resultData.body.results;
+      Object.values(arrayFromBody).forEach(question => {
+        let randomIndex = Math.floor(Math.random() * 4);
+        question.all_answers = question.incorrect_answers;
+        question.all_answers.splice(randomIndex, 0, question.correct_answer);
+        questionsArr.push(question);
+      })
+
+      return questionsArr;
+    })
+}
+
 function nextQuestion(questions) {
   Object.keys(users).forEach(value => {
-    users[value].answer = questions.answer;
+    users[value].answer = questions.correct_answer;
   })
   userNameSp.emit('nextQuestion', questions)
 }
+
 
 function countdown(id){
   let text = {
@@ -292,21 +311,6 @@ function countdown(id){
   }, 1000);
 }
 
-async function getQuestions() {
-  const url = 'https://opentdb.com/api.php?amount=10'
-
-  await superagent.get(url)
-    .then (resultData => {
-      const arrayFromBody = resultData.body.results;
-      Object.values(arrayFromBody).forEach(question => {
-        question.all_answers = question.incorrect_answers.concat(question.correct_answer);
-        questionsArr.push(question);
-      })
-      // console.log(questionsArr);
-      return questionsArr;
-    })
-    // console.log(questionsArr);
-}
 
 //this evaluates all text enter into the terminal after the user hits enter :)
 repl.start({
