@@ -9,7 +9,9 @@ mongoose.set("useCreateIndex", true);
 
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
-  password: { type: String, require: true },
+  password: { type: String, required: true },
+  textStyle: { type: String, default: 'bold', enum: ['bold', 'dim', 'italic', 'underline', 'inverse']},
+  textColor: { type: String, default: 'blue', enum: ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray']},
   role: { type: String, required: true, default: 'user', enum: ['user', 'superuser', 'admin'] }
 }, { toJSON: { virtuals: true }});
 

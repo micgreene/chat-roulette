@@ -4,7 +4,7 @@
 const inquirer = require('inquirer');
 const mongoose = require('mongoose');
 const repl = require('repl');
-const mathQuestions = require('./mathQuestions.js');
+const superagent = require('superagent');
 
 //setup environmental variables
 require('dotenv').config();
@@ -23,16 +23,18 @@ mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
-const { question } = require('readline-sync');
-const { error } = require('console');
 
 //create an array to hold references to each connected user
 const users = {
   // fills in as users connect
 };
 
+// holds all of the question pulled from the trivia API
+let questionsArr = [];
+
 //create an array of users who have won the current round of a game
 let winners = [];
+
 
 //keep track of which game round it is
 let round = 1;
@@ -51,7 +53,6 @@ userNameSp.on('connection', (socket) => {
       addNewUser(payload.username, socket);
       socket.emit('config', payload.username);
     }
-
   });
 
   socket.on('signup-credentials', payload => {
@@ -63,19 +64,26 @@ userNameSp.on('connection', (socket) => {
         socket.emit('login-error', message);
         return;
       } else {
-        console.log(`You have successfully created an account ${payload.username}`)
+        console.log(`You have successfully created an account ${user.username}`)
       }
       addNewUser(payload.username, socket);
       socket.emit('config', payload.username);;
     })
   })
-
+  
   // !! Logic for styling the user text, but it's not working yet
   socket.on('configs-complete', payload => {
     // assigning the style selections to the user object
-    users[payload.username].textStyle = payload.textStyle;
-    users[payload.username].textColor = payload.textColor;
-    socket.emit('joined-server', payload.username);
+    users[payload.username] = {textColor: payload.textColor, textStyle: payload.textStyle};
+    
+    userModel.findOneAndUpdate({username: `${payload.username}`}, {textColor: `${payload.textColor}`, textStyle: `${payload.textStyle}`}, {new: true}, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else { console.log(user);
+        
+        console.log('new user created:', {user});
+      socket.emit('joined-server', payload.username); }
+    });
   })
 
   // submitting a string in the terminal will automatically create a message event via repl
@@ -96,7 +104,12 @@ userNameSp.on('connection', (socket) => {
     //----------List of Commands Users/Admins May Enter Into Terminal
     //command strings are all prefaced by **
 
-    emojis(payload, socket);
+    let newPayload = emojis(payload);
+
+    if (newPayload) {
+      socket.broadcast.emit('command', newPayload);
+      socket.emit('command', newPayload);
+    }
 
     //**authors returns the names and Linked-in urls of all team members
     if (payload.text.split('\n')[0] === '**authors') {
@@ -117,7 +130,7 @@ userNameSp.on('connection', (socket) => {
       //console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
 
-      let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
+      let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       startGame(question);
     }
 
@@ -125,7 +138,8 @@ userNameSp.on('connection', (socket) => {
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
         socket.emit('correct', 'Correct!');
         users[payload.username].score++;
-        nextQuestion(mathQuestions[Math.floor(Math.random() * mathQuestions.length)]);
+        console.log(users[payload.username.score]);
+        nextQuestion(questionsArr[Math.floor(Math.random() * questionsArr.length)]);
       }
     }
     catch {
@@ -149,16 +163,15 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
-function emojis(payload, socket) {
+function emojis(payload) {
   if (payload.text.split('\n')[0] === '**lol') {
     let newPayload = {
       text: '"(^v^)"\n',
       username: payload.username
-
     }
 
-    socket.broadcast.emit('command', newPayload);
-    socket.emit('command', newPayload);
+    return newPayload;
+
   }
 }
 
@@ -278,15 +291,18 @@ function spliceLosers(){
 }
 
 // function to start game logic
+
 function startGame(question) {
   round = 1;
+
   Object.keys(users).forEach(value => {
     //clears text from screen for important alerts
     //*see user.js for 'clear' event handler
     //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
     // assigns a correct answer to the player
-    users[value].answer = question.answer;
+    users[value].answer = question.correct_answer;
+
     // resets the scores
     users[value].score = 0;
     let text = {
@@ -314,6 +330,23 @@ function startGame(question) {
   }, 15000);
 }
 
+async function getQuestions() {
+  const url = 'https://opentdb.com/api.php?amount=50'
+
+  await superagent.get(url)
+    .then (resultData => {
+      const arrayFromBody = resultData.body.results;
+      Object.values(arrayFromBody).forEach(question => {
+        let randomIndex = Math.floor(Math.random() * 4);
+        question.all_answers = question.incorrect_answers;
+        question.all_answers.splice(randomIndex, 0, question.correct_answer);
+        questionsArr.push(question);
+      })
+
+      return questionsArr;
+    })
+}
+
 function nextQuestion(questions) {
   Object.keys(users).forEach(value => {
     users[value].answer = questions.answer;
@@ -322,6 +355,7 @@ function nextQuestion(questions) {
 }
 
 function countdown(id) {
+
   let text = {
     text: '3\n',
     username: 'SYSTEM',
@@ -494,6 +528,7 @@ function gameOver(winnerName){
   }, 2000);
 }
 
+
 //this evaluates all text enter into the terminal after the user hits enter :)
 repl.start({
   //use this to set a prompt at the beginning of the terminal command line
@@ -508,5 +543,6 @@ repl.start({
     socket.send({ text, username });
   },
 })
+
 
 console.log(`Server Listening on Port: ${port}.`)
