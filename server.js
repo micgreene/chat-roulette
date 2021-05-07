@@ -39,6 +39,9 @@ let winners = [];
 //keep track of which game round it is
 let round = 1;
 
+//fill questions array
+getQuestions();
+
 userNameSp.on('connection', (socket) => {
   socket.join('lobby');
   console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
@@ -74,7 +77,8 @@ userNameSp.on('connection', (socket) => {
   // !! Logic for styling the user text, but it's not working yet
   socket.on('configs-complete', payload => {
     // assigning the style selections to the user object
-    users[payload.username] = {textColor: payload.textColor, textStyle: payload.textStyle};
+    users[payload.username].textColor = payload.textColor;
+    users[payload.username].textStyle = payload.textStyle;
     
     userModel.findOneAndUpdate({username: `${payload.username}`}, {textColor: `${payload.textColor}`, textStyle: `${payload.textStyle}`}, {new: true}, (err, user) => {
       if (err) {
@@ -295,13 +299,15 @@ function spliceLosers(){
 function startGame(question) {
   round = 1;
 
+  console.log('users objects: ', users);
+  console.log('question.all_answers: ', question.all_answers)
   Object.keys(users).forEach(value => {
     //clears text from screen for important alerts
     //*see user.js for 'clear' event handler
     //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
     // assigns a correct answer to the player
-    users[value].answer = question.correct_answer;
+    users[value].answer = question.all_answers.correct_answer;
 
     // resets the scores
     users[value].score = 0;
@@ -342,7 +348,7 @@ async function getQuestions() {
         question.all_answers.splice(randomIndex, 0, question.correct_answer);
         questionsArr.push(question);
       })
-
+      console.log('questions arr: ', questionsArr)
       return questionsArr;
     })
 }
@@ -421,8 +427,11 @@ function determineWinner(player1, player2) {
     }
   });
 
+  console.log('player1 name: ', player1Name);
+  console.log('player2 name: ', player2Name);
   users[player1Name].answer = null;
   users[player2Name].answer = null;
+
   let winner = null;
   let text = {
     text: '',
@@ -477,7 +486,7 @@ function determineWinner(player1, player2) {
     userNameSp.to(player2).emit('message', text);
 
     setTimeout(() => {
-      let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
+      let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       shuffleUsers();
 
       startGame(question);
