@@ -64,7 +64,7 @@ userNameSp.on('connection', (socket) => {
       winnerObj.id = socket.id;
       winnerObj.socket = socket;
       winners.push(winnerObj);
-      socket.emit('config', payload.username);
+      socket.emit('joined-server', payload.username);
     }
 
   });
@@ -78,20 +78,27 @@ userNameSp.on('connection', (socket) => {
         socket.emit('login-error', message);
         return;
       } else {
-        console.log(`You have successfully created an account ${payload.username}`)
+        console.log(`You have successfully created an account ${user.username}`)
       }
       addNewUser(payload.username, socket);
       // socket.emit('config', payload.username);
       socket.emit('config', payload.username);
     })
   })
-
+  
   // !! Logic for styling the user text, but it's not working yet
   socket.on('configs-complete', payload => {
     // assigning the style selections to the user object
-    users[payload.username].textStyle = payload.textStyle;
-    users[payload.username].textColor = payload.textColor;
-    socket.emit('joined-server', payload.username);
+    users[payload.username] = {textColor: payload.textColor, textStyle: payload.textStyle};
+    
+    userModel.findOneAndUpdate({username: `${payload.username}`}, {textColor: `${payload.textColor}`, textStyle: `${payload.textStyle}`}, {new: true}, (err, user) => {
+      if (err) {
+        console.log(err);
+      } else { console.log(user);
+        
+        console.log('new user created:', {user});
+      socket.emit('joined-server', payload.username); }
+    });
   })
 
   // submitting a string in the terminal will automatically create a message event via repl
@@ -112,7 +119,12 @@ userNameSp.on('connection', (socket) => {
     //----------List of Commands Users/Admins May Enter Into Terminal
     //command strings are all prefaced by **
 
-    emojis(payload, socket);
+    let newPayload = emojis(payload);
+
+    if (newPayload) {
+      socket.broadcast.emit('command', newPayload);
+      socket.emit('command', newPayload);
+    }
 
     //**authors returns the names and Linked-in urls of all team members
     if (payload.text.split('\n')[0] === '**authors') {
@@ -165,16 +177,15 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
-function emojis(payload, socket) {
+function emojis(payload) {
   if (payload.text.split('\n')[0] === '**lol') {
     let newPayload = {
       text: '"(^v^)"\n',
       username: payload.username
-
     }
 
-    socket.broadcast.emit('command', newPayload);
-    socket.emit('command', newPayload);
+    return newPayload;
+
   }
 }
 
