@@ -69,6 +69,8 @@ socket.on('login-error', payload => {
 })
 
 socket.on('joined-server', payload => {
+  username = payload;
+
   console.log(`\n♫${payload}♫ has entered the Chatter©!`);
   replStart();
   socket.off('joined-server');
