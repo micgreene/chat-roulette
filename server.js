@@ -300,3 +300,13 @@ repl.start({
 })
 
 console.log(`Server Listening on Port: ${port}.`)
+
+module.exports = {
+  emojis: emojis,
+  addNewUser: addNewUser,
+  authors: authors,
+  shuffleUsers: shuffleUsers,
+  startGame: startGame,
+  nextQuestion: nextQuestion,
+  countdown: countdown
+}
