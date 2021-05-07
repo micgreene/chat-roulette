@@ -4,7 +4,6 @@
 const inquirer = require('inquirer');
 const mongoose = require('mongoose');
 const repl = require('repl');
-const mathQuestions = require('./mathQuestions.js');
 const superagent = require('superagent');
 
 //setup environmental variables
@@ -134,8 +133,7 @@ userNameSp.on('connection', (socket) => {
       console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
 
-      // Math.floor(Math.random() * mathQuestions.length)
-      let question = questionsArr[Math.floor(Math.random() * mathQuestions.length)];
+      let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       startGame(socket, question);
     }
 
@@ -143,7 +141,8 @@ userNameSp.on('connection', (socket) => {
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
         socket.emit('correct', 'Correct!');
         users[payload.username].score++;
-        nextQuestion(questionsArr[Math.floor(Math.random() * mathQuestions.length)]);
+        console.log(users[payload.username.score]);
+        nextQuestion(questionsArr[Math.floor(Math.random() * questionsArr.length)]);
       }
     }
     catch {
@@ -262,12 +261,30 @@ function startGame(socket, question) {
   });
 }
 
+async function getQuestions() {
+  const url = 'https://opentdb.com/api.php?amount=50'
+
+  await superagent.get(url)
+    .then (resultData => {
+      const arrayFromBody = resultData.body.results;
+      Object.values(arrayFromBody).forEach(question => {
+        let randomIndex = Math.floor(Math.random() * 4);
+        question.all_answers = question.incorrect_answers;
+        question.all_answers.splice(randomIndex, 0, question.correct_answer);
+        questionsArr.push(question);
+      })
+
+      return questionsArr;
+    })
+}
+
 function nextQuestion(questions) {
   Object.keys(users).forEach(value => {
     users[value].answer = questions.correct_answer;
   })
   userNameSp.emit('nextQuestion', questions)
 }
+
 
 function countdown(id){
   let text = {
@@ -294,21 +311,6 @@ function countdown(id){
   }, 1000);
 }
 
-async function getQuestions() {
-  const url = 'https://opentdb.com/api.php?amount=10'
-
-  await superagent.get(url)
-    .then (resultData => {
-      const arrayFromBody = resultData.body.results;
-      Object.values(arrayFromBody).forEach(question => {
-        question.all_answers = question.incorrect_answers.concat(question.correct_answer);
-        questionsArr.push(question);
-      })
-      // console.log(questionsArr);
-      return questionsArr;
-    })
-    // console.log(questionsArr);
-}
 
 //this evaluates all text enter into the terminal after the user hits enter :)
 repl.start({
