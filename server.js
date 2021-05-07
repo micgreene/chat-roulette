@@ -34,14 +34,10 @@ const users = {
 //create an array of users who have won the current round of a game
 let winners = [];
 
-userNameSp.on('connection', (socket) => {
-  // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
-  let winnerObj = {
-    username: null,
-    id: null,
-    socket: null
-  }
+//keep track of which game round it is
+let round = 1;
 
+userNameSp.on('connection', (socket) => {
   socket.join('lobby');
   console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
 
@@ -52,11 +48,7 @@ userNameSp.on('connection', (socket) => {
       console.log(reply.error.message)
       socket.emit("login-error", reply.error.message);
     } else { // there was no basic auth error, payload = user object
-      addNewUser(payload.username, socket)
-      winnerObj.username = payload.username;
-      winnerObj.id = socket.id;
-      winnerObj.socket = socket;
-      winners.push(winnerObj);
+      addNewUser(payload.username, socket);
       socket.emit('config', payload.username);
     }
 
@@ -74,8 +66,7 @@ userNameSp.on('connection', (socket) => {
         console.log(`You have successfully created an account ${payload.username}`)
       }
       addNewUser(payload.username, socket);
-      // socket.emit('config', payload.username);
-      socket.emit('config', payload.username);
+      socket.emit('config', payload.username);;
     })
   })
 
@@ -115,19 +106,19 @@ userNameSp.on('connection', (socket) => {
     }
 
     if (payload.text.split('\n')[0] === '**shuffle') {
-      shuffleUsers(socket, payload.username);
+      shuffleUsers();
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
 
     }
 
     // **start starts the chat game logic
     if (payload.text.split('\n')[0] === '**start') {
-      shuffleUsers(socket, payload.username);
-      console.log(users);
+      shuffleUsers();
+      //console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
 
       let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
-      startGame(socket, question);
+      startGame(question);
     }
 
     try {
@@ -172,13 +163,33 @@ function emojis(payload, socket) {
 }
 
 function addNewUser(username, socket) {
+  //create a new User object and register its socket id, then place them in the lobby 
   users[username] = new User(username);
   users[username].room = 'lobby';
   users[username].id = socket.id;
+  users[username].socket = socket;
+
+  // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
+  let winnerObj = {
+    username: null,
+    id: null,
+    socket: null,
+    room: null,
+    wonRound: true
+  }
+  //create a new player object for the game start and place them in an array
+  //this 'winners' array will keep track of players who have yet to be eliminated
+  winnerObj.username = username;
+  winnerObj.id = socket.id;
+  winnerObj.socket = socket;
+  winners.push(winnerObj);
+
+  //alert the admin that a new user has joined
   process.stdout.write(`${username} has connected to server`);
   process.stdout.write('\r\x1b[K');
 }
 
+//keeps a list of devs for the project and their contact info
 function authors() {
   const projectAuthors = {
     darci: { name: 'Dar-Ci Calhoun     ', linkedin: 'url' },
@@ -186,44 +197,89 @@ function authors() {
     cody: { name: 'Cody Carpenter     ', linkedin: 'url' },
     mike: { name: 'Michael Greene     ', linkedin: 'url' }
   };
-
   return projectAuthors;
 }
 
-function shuffleUsers(socket, username) {
+//shuffles remaining players into new rooms when called
+
+function shuffleUsers() {
   if (winners.length === 0) {
     console.log('Error: winners[] array is empty!');
   }
 
   if (winners.length % 2 !== 0) {
-    socket.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
+    userNameSp.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
   } else {
-    let counter = 1;
+    let counter = 1;    
     let roomNo = 0;
-    for (let i = 0; i < winners.length; i++) {
-      winners[i].socket.leave('lobby');
-      winners[i].socket.join(roomNo);
 
+    if (round === 1) {
+      for (let i = 0; i < winners.length; i++) {
+        winners[i].socket.leave('lobby');
+        winners[i].socket.join(roomNo);
+        winners[i].room = roomNo;
+
+        Object.keys(users).forEach(value => {
+          if (winners[i].username === users[value].username) {
+            users[value].room = roomNo;
+          }
+        });
+
+        //every two players counted, the room number increases
+        if (counter % 2 === 0) {
+          counter = 1;
+          roomNo++;
+        } else if (counter % 2 !== 0) {
+          counter++;
+        }
+      }
+    } else {
+      for (let i = 0; i < winners.length; i++) {
+        winners[i].socket.leave(winners[i].room);
+        winners[i].socket.join(roomNo);
+
+        Object.keys(users).forEach(value => {
+          if (winners[i].username === users[value].username) {
+            users[value].room = roomNo;
+          }
+        });
+
+        //every two players counted, the room number increases
+        if (counter % 2 === 0) {
+          counter = 1;
+          roomNo++;
+        } else if (counter % 2 !== 0) {
+          counter++;
+        }
+      }
+    }    
+  }
+}
+
+function spliceLosers(){
+  for (let i = 0; i < winners.length; i++) {
+    if (winners[i].wonRound === false) {      
+      winners[i].socket.leave(winners[i].room);
+      winners[i].socket.join('lobby');
       Object.keys(users).forEach(value => {
         if (winners[i].username === users[value].username) {
-          users[value].room = roomNo;
+          users[value].room = 'lobby';           
         }
       });
 
-      if (counter % 2 === 0) {
-        counter = 1;
-        roomNo++;
-      } else if (counter % 2 !== 0) {
-        counter++;
+      winners.splice(i, 1);
+      console.log('length array: ', winners.length);  
+      if (winners[i] && winners[i].wonRound === false) {
+        winners.splice(i, 1);
       }
-    }
+         
+    } 
   }
 }
 
 // function to start game logic
-function startGame(socket, question) {
-
-
+function startGame(question) {
+  round = 1;
   Object.keys(users).forEach(value => {
     //clears text from screen for important alerts
     //*see user.js for 'clear' event handler
@@ -234,32 +290,38 @@ function startGame(socket, question) {
     // resets the scores
     users[value].score = 0;
     let text = {
-      text: '********************GAME START!!!********************\n',
+      text: '************************GAME START!!!************************\n',
       username: 'SYSTEM',
-      textStyle: users[value].textStyle,
-      textColor: users[value].textColor
+      textStyle: 'bold',
+      textColor: 'green'
     };
 
-    setTimeout(()=>{
+    setTimeout(() => {
       userNameSp.to(users[value].id).emit('message', text);
       countdown(users[value].id);
 
-      setTimeout(()=>{
+
+
+      setTimeout(() => {
         userNameSp.to(users[value].id).emit('question', question);
       }, 4000);
 
     }, 1000);
   });
+
+  setTimeout(() => {
+    endRound();
+  }, 15000);
 }
 
 function nextQuestion(questions) {
   Object.keys(users).forEach(value => {
     users[value].answer = questions.answer;
-  })
+  });
   userNameSp.emit('nextQuestion', questions)
 }
 
-function countdown(id){
+function countdown(id) {
   let text = {
     text: '3\n',
     username: 'SYSTEM',
@@ -267,21 +329,169 @@ function countdown(id){
     textColor: 'bold'
   };
 
-  setTimeout(()=>{
+  setTimeout(() => {
     userNameSp.to(id).emit('message', text);
     text.text = '2\n';
 
-    setTimeout(()=>{
+    setTimeout(() => {
       userNameSp.to(id).emit('message', text);
       text.text = '1\n';
 
-      setTimeout(()=>{
+      setTimeout(() => {
         userNameSp.to(id).emit('message', text);
       }, 1000);
 
     }, 1000);
 
   }, 1000);
+}
+
+function endRound() {
+  let text = {
+    text: '************************ROUND OVER!!!************************\n',
+    username: 'SYSTEM',
+    textStyle: 'green',
+    textColor: 'bold'
+  };
+
+  for (let i = 0; i < userNameSp.adapter.rooms.size; i++) {
+    let player1 = null;
+    let player2 = null;
+
+    if (userNameSp.adapter.rooms.get(i)) {
+      let counter = 0;
+      userNameSp.adapter.rooms.get(i).forEach(value => {
+        if (counter === 0) {
+          player1 = value;
+        } else if (counter === 1) {
+          player2 = value;
+        }
+        counter++;
+        userNameSp.to(value).emit('message', text);
+      });
+
+      determineWinner(player1, player2);
+    }
+  }
+}
+
+function determineWinner(player1, player2) {
+  let player1Name = null;
+  let player2Name = null;
+  Object.keys(users).forEach(value => {
+    if (player1 === users[value].id) {
+      player1Name = users[value].username;
+    }
+    if (player2 === users[value].id) {
+      player2Name = users[value].username;
+    }
+  });
+
+  users[player1Name].answer = null;
+  users[player2Name].answer = null;
+  let winner = null;
+  let text = {
+    text: '',
+    username: 'SYSTEM',
+    textStyle: 'underline',
+    textColor: 'white'
+  }
+
+  if (users[player1Name].score > users[player2Name].score) {
+    winner = player1Name;
+    text.text = `${player1Name} HAS WON ROUND ${round}!!!`;
+    users[player1Name].highScore += users[player1Name].score;
+
+    for (let i = 0; i < winners.length; i++) {
+      if (winners[i].username === player2Name) {
+        winners[i].wonRound = false;
+      }
+    }
+
+  } else {
+    winner = player2Name;
+    text.text = `${player2Name} HAS WON ROUND ${round}!!!`
+    users[player2Name].highScore += users[player2Name].score;
+
+    for (let i = 0; i < winners.length; i++) {
+      if (winners[i].username === player1Name) {
+        console.log('THEY LOSTWWWWWWWWWWWWWWWWWWWWWWWWWWW')
+        winners[i].wonRound = false;
+      }
+    }
+  }
+  userNameSp.to(player1).emit('message', text);
+  userNameSp.to(player2).emit('message', text);
+  round++;
+
+  //remove players that lost this round and move them back to the lobby
+  spliceLosers();
+
+  //when there is only 1 player left, broadcast the end of the game
+  if(winners.length === 1){    
+    text.text = `'************************GAME OVER!!!'************************`;
+    text.textColor = 'green';
+    userNameSp.emit('message', text);
+    
+    return gameOver(winners[0].username);    
+  } 
+
+  setTimeout(() => {
+    text.text = `GET READY FOR ROUND ${round}!!!!`;
+    text.textColor = 'green';
+
+    userNameSp.to(player2).emit('message', text);
+
+    setTimeout(() => {
+      let question = mathQuestions[Math.floor(Math.random() * mathQuestions.length)];
+      shuffleUsers();
+
+      startGame(question);
+
+    }, 1000);
+
+  }, 3000);
+}
+
+function gameOver(winnerName){
+  setTimeout(() => {
+    let text = {
+      text: 'WE HAVE A NEW CHAMPION!',
+      username: 'SYSTEM',
+      textStyle: 'underline',
+      textColor: 'white'
+    }
+    userNameSp.emit('message', text);
+
+    setTimeout(() => {
+      text.text = `${winnerName} IS THE CHATTER MASTER!!!`
+      userNameSp.emit('message', text);
+
+      winners[0].socket.leave(winners[0].room);
+      winners[0].socket.join('lobby');
+      winners.pop();
+
+      console.log('winners[] should be empty: ', winners);
+      Object.keys(users).forEach(value => {
+        let winnerObj = {
+          username: null,
+          id: null,
+          socket: null,
+          room: 'lobby',
+          wonRound: true
+        }
+        //create a new player object for the game start and place them in an array
+        //this 'winners' array will keep track of players who have yet to be eliminated
+        winnerObj.username = users[value].username;
+        winnerObj.id = users[value].id;
+        winnerObj.socket = users[value].socket;
+        winners.push(winnerObj);
+      });
+      console.log('winners[] should be full: ', winners);
+      console.log('room breakdown: ', userNameSp.adapter.rooms);
+
+    }, 3000);
+  }, 2000);
 }
 
 //this evaluates all text enter into the terminal after the user hits enter :)
