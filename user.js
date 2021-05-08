@@ -68,9 +68,12 @@ socket.on('login-error', payload => {
   })
 })
 
+// socket.on('message', (payload) => {
+//   console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+// });
+
 socket.on('joined-server', payload => {
   username = payload;
-
   console.log(`\n♫${payload}♫ has entered the Chatter©!`);
   replStart();
   socket.off('joined-server');
@@ -157,35 +160,31 @@ function login() {
   var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
   inquirer.prompt(loginPrompt)
     .then(answer => {
-      var questions = [
-        { type: 'input', name: 'username', message: 'Enter your username: ' },
-        { type: 'password', name: 'secret', message: 'Enter your password. Must have at least 8 characters, a letter, number, and a symbol: ', mask: '*', validate: validatePassword}
-      ]
-      if (answer.account === 'Yes') {
-        socket.off('message');
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('login-credentials', { username: answers.username, password: answers.secret });
-
-            socket.on('message', (payload) => {
-              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
-            });
-
-          })
-          .catch(err => { console.log(err) })
-      } else {
-        socket.off('message');
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
-
-            socket.on('message', (payload) => {
-                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
-            });
-          })
-      }
-    })
+      let nextEvent = (answer.account === "Yes") ? 'login-credentials' : 'signup-credentials';
+      let loginQs = [{ type: 'input', name: 'username', message: 'Enter your username: ' },
+        { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }]
+      let signupQs = [{ type: 'input', name: 'username', message: 'Enter your username: ' },
+        { type: 'password', name: 'secret', message: 'Enter your password. Must have at least 8 characters, a letter, number, and a symbol: ', mask: '*', validate: validatePassword}]
+      let questions = (answer.account === "Yes") ? loginQs : signupQs;
+      // socket.off('messages');
+      inquirer.prompt(questions)
+        .then(answers => {
+          socket.emit(nextEvent, { username: answers.username, password: answers.secret });
+          messagesOn();
+        })
+        .catch(err => { console.log(err) })
+      })
     .catch(err => { console.log(err) });
+}
+
+function messagesOn() {
+  socket.on('message', (payload) => {
+    console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+  });
+}
+
+function messagesOff() {
+  socket.off('messages');
 }
 
 function validatePassword(value) {
@@ -196,8 +195,6 @@ function validatePassword(value) {
   const letter = /[A-Za-z]+/;
   const number = /\d+/;
   const symbol = /\W+/;
-
-  // if (eightCharacters.test(value) && letter.test(value) && number.test(value) && symbol.test(value)) { return true; }
 
   if (!eightCharacters.test(value)) {errorMessage += 'not enough characters; '}
   if (!letter.test(value)) {errorMessage += 'password must have at least one letter; '}
