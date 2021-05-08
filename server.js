@@ -139,10 +139,11 @@ userNameSp.on('connection', (socket) => {
     }
 
     try {
+      console.log(users[payload.username].answer);
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
-        socket.emit('correct', 'Correct!');
+        userNameSp.emit('correct', 'Correct!');
         users[payload.username].score++;
-        console.log(users[payload.username.score]);
+        console.log('NEW SCORE: ', users[payload.username].score);
         nextQuestion(questionsArr[Math.floor(Math.random() * questionsArr.length)]);
       }
     }
@@ -284,8 +285,7 @@ function spliceLosers(){
         }
       });
 
-      winners.splice(i, 1);
-      console.log('length array: ', winners.length);  
+      winners.splice(i, 1);  
       if (winners[i] && winners[i].wonRound === false) {
         winners.splice(i, 1);
       }
@@ -298,16 +298,13 @@ function spliceLosers(){
 
 function startGame(question) {
   round = 1;
-
-  console.log('users objects: ', users);
-  console.log('question.all_answers: ', question.all_answers)
   Object.keys(users).forEach(value => {
     //clears text from screen for important alerts
     //*see user.js for 'clear' event handler
     //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
     // assigns a correct answer to the player
-    users[value].answer = question.all_answers.correct_answer;
+    users[value].answer = question.correct_answer;
 
     // resets the scores
     users[value].score = 0;
@@ -348,14 +345,13 @@ async function getQuestions() {
         question.all_answers.splice(randomIndex, 0, question.correct_answer);
         questionsArr.push(question);
       })
-      console.log('questions arr: ', questionsArr)
       return questionsArr;
     })
 }
 
 function nextQuestion(questions) {
   Object.keys(users).forEach(value => {
-    users[value].answer = questions.answer;
+    users[value].answer = question.correct_answer;
   });
   userNameSp.emit('nextQuestion', questions)
 }
@@ -458,7 +454,6 @@ function determineWinner(player1, player2) {
 
     for (let i = 0; i < winners.length; i++) {
       if (winners[i].username === player1Name) {
-        console.log('THEY LOSTWWWWWWWWWWWWWWWWWWWWWWWWWWW')
         winners[i].wonRound = false;
       }
     }
@@ -538,20 +533,20 @@ function gameOver(winnerName){
 }
 
 
-//this evaluates all text enter into the terminal after the user hits enter :)
-repl.start({
-  //use this to set a prompt at the beginning of the terminal command line
-  prompt: ``,
-  //this is whatever text was last entered into the terminal by the user
-  eval: (text) => {
-    //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
-    //this prevents multiple lines of your own text staying in the terminal when posting your messages
-    process.stdout.write('\u001b[1F');
+// //this evaluates all text enter into the terminal after the user hits enter :)
+// repl.start({
+//   //use this to set a prompt at the beginning of the terminal command line
+//   prompt: ``,
+//   //this is whatever text was last entered into the terminal by the user
+//   eval: (text) => {
+//     //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
+//     //this prevents multiple lines of your own text staying in the terminal when posting your messages
+//     process.stdout.write('\u001b[1F');
 
-    //this creates an automatic 'message' event using the username and text entered as the payload
-    socket.send({ text, username });
-  },
-})
+//     //this creates an automatic 'message' event using the username and text entered as the payload
+//     socket.send({ text, username });
+//   },
+// })
 
 
 console.log(`Server Listening on Port: ${port}.`)
