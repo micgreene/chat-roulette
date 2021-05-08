@@ -68,10 +68,6 @@ socket.on('login-error', payload => {
   })
 })
 
-// socket.on('message', (payload) => {
-//   console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
-// });
-
 socket.on('joined-server', payload => {
   username = payload;
   console.log(`\n♫${payload}♫ has entered the Chatter©!`);
@@ -84,7 +80,6 @@ socket.on('odd-number-of-users', payload => {
 });
 
 socket.on('clear-terminal', payload => {
-  //process.stdout.write('\033[2J');
   process.stdout.write('\x1B[2J');
 })
 

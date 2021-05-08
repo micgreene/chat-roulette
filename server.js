@@ -334,7 +334,7 @@ async function getQuestions() {
 
 function nextQuestion(questions) {
   Object.keys(users).forEach(value => {
-    users[value].answer = questions.answer;
+    users[value].answer = questions.correct_answer;
   });
   userNameSp.emit('nextQuestion', questions)
 }
