@@ -92,14 +92,6 @@ userNameSp.on('connection', (socket) => {
       users[payload.username] = await userModel.findOne({ username: `${payload.username}` });
     }
 
-    let updPayload = {
-      text: emojis(payload.text),
-      username: payload.username,
-      textColor: users[payload.username].textColor,
-      textStyle: users[payload.username].textStyle,
-    }
-    userNameSp.emit('message', updPayload);
-
     // *******************COMMANDS LIST********************/
     // ----------List of Commands Users/Admins May Enter Into Terminal
     // command strings are all prefaced by **
@@ -120,7 +112,6 @@ userNameSp.on('connection', (socket) => {
       shuffleUsers();
       //console.log(users);
       //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
-
       let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       startGame(question);
     }
@@ -131,6 +122,14 @@ userNameSp.on('connection', (socket) => {
       console.log(users[payload.username.score]);
       nextQuestion(questionsArr[Math.floor(Math.random() * questionsArr.length)]);
     }
+
+    let updPayload = {
+      text: emojis(payload.text),
+      username: payload.username,
+      textColor: users[payload.username].textColor,
+      textStyle: users[payload.username].textStyle,
+    }
+    userNameSp.emit('message', updPayload);
 
   })
 
@@ -290,7 +289,7 @@ function startGame(question) {
     //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
     // assigns a correct answer to the player
-    users[value].answer = question.all_answers.correct_answer;
+    users[value].answer = question.correct_answer;
 
     // resets the scores
     users[value].score = 0;
@@ -516,21 +515,5 @@ function gameOver(winnerName){
     }, 3000);
   }, 2000);
 }
-
-//this evaluates all text enter into the terminal after the user hits enter :)
-repl.start({
-  //use this to set a prompt at the beginning of the terminal command line
-  prompt: ``,
-  //this is whatever text was last entered into the terminal by the user
-  eval: (text) => {
-    //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
-    //this prevents multiple lines of your own text staying in the terminal when posting your messages
-    process.stdout.write('\u001b[1F');
-
-    //this creates an automatic 'message' event using the username and text entered as the payload
-    socket.send({ text, username });
-  },
-})
-
 
 console.log(`Server Listening on Port: ${port}.`)
