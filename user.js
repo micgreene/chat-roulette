@@ -12,6 +12,9 @@ const mute = require('mute');
 const unmute = mute();
 unmute();//unmutes
 
+var audio = new Audio('correct.mp3');
+
+
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
@@ -71,7 +74,9 @@ socket.on('login-error', payload => {
 socket.on('joined-server', payload => {
   username = payload;
 
-  console.log(`\n♫${payload}♫ has entered the Chatter©!`);
+  console.log(`\n♫${payload}♫ has entered the Chatter©!\n`);
+  console.log(`Joined Room: Lobby\n`);
+
   replStart();
   socket.off('joined-server');
 });
@@ -114,6 +119,7 @@ socket.on('nextQuestion', (payload) => {
 
 socket.on('correct', (payload) => {
   console.log(chalk.green(payload));
+  audio.play();
 })
 
 socket.on('incorrect', (payload) => {
@@ -168,7 +174,7 @@ function login() {
             socket.emit('login-credentials', { username: answers.username, password: answers.secret });
 
             socket.on('message', (payload) => {
-              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}\n`));
             });
 
           })
@@ -180,7 +186,7 @@ function login() {
             socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
 
             socket.on('message', (payload) => {
-                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}\n`));
             });
           })
       }

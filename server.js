@@ -34,7 +34,7 @@ let questionsArr = [];
 
 //create an array of users who have won the current round of a game
 let winners = [];
-
+let roomList = [];
 
 //keep track of which game round it is
 let round = 1;
@@ -44,7 +44,7 @@ getQuestions();
 
 userNameSp.on('connection', (socket) => {
   socket.join('lobby');
-  console.log(`Welcome, socket id:${socket.id} has joined the Lobby!`);
+  console.log(`Socket id:${socket.id} has joined the Lobby!`);
 
   socket.on('login-credentials', async (payload) => {
     let reply = await basic(payload.username, payload.password);
@@ -144,7 +144,9 @@ userNameSp.on('connection', (socket) => {
         userNameSp.emit('correct', 'Correct!');
         users[payload.username].score++;
         console.log('NEW SCORE: ', users[payload.username].score);
-        nextQuestion(questionsArr[Math.floor(Math.random() * questionsArr.length)]);
+
+        let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
+        nextQuestion(question);
       }
     }
     catch {
@@ -221,6 +223,14 @@ function authors() {
 //shuffles remaining players into new rooms when called
 
 function shuffleUsers() {
+  roomList = [];
+  let text = {
+    text: '',
+    username: 'SYSTEM',
+    textStyle: 'bold',
+    textColor: 'green'
+  };
+
   if (winners.length === 0) {
     console.log('Error: winners[] array is empty!');
   }
@@ -231,10 +241,13 @@ function shuffleUsers() {
     let counter = 1;    
     let roomNo = 0;
 
-    if (round === 1) {
+    if (round === 1) {      
       for (let i = 0; i < winners.length; i++) {
         winners[i].socket.leave('lobby');
         winners[i].socket.join(roomNo);
+
+        text.text = `Moved to Room: ${roomNo}\n`;
+        winners[i].socket.emit('message', text);
         winners[i].room = roomNo;
 
         Object.keys(users).forEach(value => {
@@ -245,6 +258,7 @@ function shuffleUsers() {
 
         //every two players counted, the room number increases
         if (counter % 2 === 0) {
+          roomList.push(roomNo);
           counter = 1;
           roomNo++;
         } else if (counter % 2 !== 0) {
@@ -272,13 +286,28 @@ function shuffleUsers() {
       }
     }    
   }
+
+  console.log('List of Rooms: ', roomList);
 }
 
 function spliceLosers(){
+  let text = {
+    text: '',
+    username: 'SYSTEM',
+    textStyle: 'bold',
+    textColor: 'green'
+  };
+
   for (let i = 0; i < winners.length; i++) {
     if (winners[i].wonRound === false) {      
       winners[i].socket.leave(winners[i].room);
       winners[i].socket.join('lobby');
+
+      text.text = `You Lose!`;
+      winners[i].socket.emit('message', text);
+      text.text = `Moving Back to Room: Lobby\n`;
+      winners[i].socket.emit('message', text);
+
       Object.keys(users).forEach(value => {
         if (winners[i].username === users[value].username) {
           users[value].room = 'lobby';           
@@ -349,11 +378,13 @@ async function getQuestions() {
     })
 }
 
-function nextQuestion(questions) {
+function nextQuestion(question) {  
   Object.keys(users).forEach(value => {
+    console.log(question);
     users[value].answer = question.correct_answer;
   });
-  userNameSp.emit('nextQuestion', questions)
+
+  userNameSp.emit('nextQuestion', question)
 }
 
 function countdown(id) {
@@ -494,7 +525,7 @@ function determineWinner(player1, player2) {
 function gameOver(winnerName){
   setTimeout(() => {
     let text = {
-      text: 'WE HAVE A NEW CHAMPION!',
+      text: 'WE HAVE A NEW CHAMPION!\n',
       username: 'SYSTEM',
       textStyle: 'underline',
       textColor: 'white'
@@ -502,14 +533,23 @@ function gameOver(winnerName){
     userNameSp.emit('message', text);
 
     setTimeout(() => {
-      text.text = `${winnerName} IS THE CHATTER MASTER!!!`
+      text.text = `${winnerName} IS THE CHATTER MASTER!!!\n`;
+      userNameSp.emit('message', text);
+
+      text.textStyle = 'bold';
+      text.textColor = 'green';
+      text.text = `Let's Play Again Sometime!`;
       userNameSp.emit('message', text);
 
       winners[0].socket.leave(winners[0].room);
       winners[0].socket.join('lobby');
       winners.pop();
 
-      console.log('winners[] should be empty: ', winners);
+      text.text = `Moved to Room: Lobby`;
+      text.textColor = 'green';
+      text.textStyle = 'bold';
+      users[winnerName].socket.emit('message', text);
+
       Object.keys(users).forEach(value => {
         let winnerObj = {
           username: null,
@@ -525,7 +565,6 @@ function gameOver(winnerName){
         winnerObj.socket = users[value].socket;
         winners.push(winnerObj);
       });
-      console.log('winners[] should be full: ', winners);
       console.log('room breakdown: ', userNameSp.adapter.rooms);
 
     }, 3000);
