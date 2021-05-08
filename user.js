@@ -119,15 +119,6 @@ socket.on('incorrect', (payload) => {
 
 })
 
-//eventual events we'll probably need
-// socket.on('round', payload => {
-//   console.log(`${payload.username} WON THE ROUND!!!`)
-// })
-
-// socket.on('winner', payload => {
-//   console.log(`${payload.username} WINS!!`)
-// })
-
 function clearCommand() {
   process.stdout.write('\u001b[1F');
 }
