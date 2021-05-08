@@ -174,7 +174,7 @@ function login() {
 
 function messagesOn() {
   socket.on('message', (payload) => {
-    console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
+    console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}\n`))
   });
 }
 
