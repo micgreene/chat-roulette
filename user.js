@@ -12,6 +12,9 @@ const mute = require('mute');
 const unmute = mute();
 unmute();//unmutes
 
+var audio = new Audio('correct.mp3');
+
+
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
@@ -70,7 +73,8 @@ socket.on('login-error', payload => {
 
 socket.on('joined-server', payload => {
   username = payload;
-  console.log(`\n♫${payload}♫ has entered the Chatter©!`);
+  console.log(`\n♫${payload}♫ has entered the Chatter©!\n`);
+  console.log(`Joined Room: Lobby\n`);
   replStart();
   socket.off('joined-server');
 });
@@ -112,6 +116,7 @@ socket.on('nextQuestion', (payload) => {
 
 socket.on('correct', (payload) => {
   console.log(chalk.green(payload));
+  audio.play();
 })
 
 socket.on('incorrect', (payload) => {
