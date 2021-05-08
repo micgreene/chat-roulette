@@ -535,3 +535,9 @@ function cleanString(string) {
 }
 
 console.log(`Server Listening on Port: ${port}.`)
+
+module.exports = {
+  addNewUser: addNewUser,
+  emojis: emojis,
+  cleanString: cleanString
+}
