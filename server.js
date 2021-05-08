@@ -116,16 +116,14 @@ userNameSp.on('connection', (socket) => {
       startGame(question);
     }
 
-    try {
-      console.log(users[payload.username].answer);
-      if (payload.text.split('\n')[0] === users[payload.username].answer) {
-        userNameSp.emit('correct', 'Correct!');
-        users[payload.username].score++;
-        console.log('NEW SCORE: ', users[payload.username].score);
+    console.log(users[payload.username].answer);
+    if (payload.text.split('\n')[0] === users[payload.username].answer) {
+      userNameSp.in(users[payload.username].room).emit('correct', `Correct answer ${payload.username}!`);
+      users[payload.username].score++;
+      console.log('NEW SCORE: ', users[payload.username].score);
 
-        let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
-        nextQuestion(question);
-      }
+      let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
+      nextQuestion(question, payload.username);
     }
 
     let updPayload = {
@@ -134,7 +132,9 @@ userNameSp.on('connection', (socket) => {
       textColor: users[payload.username].textColor,
       textStyle: users[payload.username].textStyle,
     }
-    userNameSp.emit('message', updPayload);
+
+    // need to send only to the room the person is in
+    userNameSp.in(users[payload.username].room).emit('message', updPayload);
 
   })
 
@@ -224,7 +224,7 @@ function shuffleUsers() {
     let counter = 1;
     let roomNo = 0;
 
-    if (round === 1) {      
+    if (round === 1) {
       for (let i = 0; i < winners.length; i++) {
         winners[i].socket.leave('lobby');
         winners[i].socket.join(roomNo);
@@ -297,7 +297,7 @@ function spliceLosers(){
         }
       });
 
-      winners.splice(i, 1);  
+      winners.splice(i, 1);
       if (winners[i] && winners[i].wonRound === false) {
         winners.splice(i, 1);
       }
@@ -312,9 +312,6 @@ function startGame(question) {
 
   round = 1;
   Object.keys(users).forEach(value => {
-    //clears text from screen for important alerts
-    //*see user.js for 'clear' event handler
-    //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
     // assigns a correct answer to the player
     users[value].answer = question.correct_answer;
@@ -344,32 +341,13 @@ function startGame(question) {
   }, 15000);
 }
 
-async function getQuestions() {
-  const url = 'https://opentdb.com/api.php?amount=50'
 
-  await superagent.get(url)
-    .then (resultData => {
-      const arrayFromBody = resultData.body.results;
-      Object.values(arrayFromBody).forEach(question => {
-        question.question = cleanString(question.question);
-        let randomIndex = Math.floor(Math.random() * 4);
-        question.all_answers = question.incorrect_answers;
-        question.correct_answer = cleanString(question.correct_answer);
-        question.all_answers.splice(randomIndex, 0, question.correct_answer);
-        question.all_answers.forEach(function(question, index) {
-          this[index] = cleanString(question);
-        }, question.all_answers)
-        questionsArr.push(question);
-      })
-      return questionsArr;
-    })
-}
-
-function nextQuestion(question) {  
+function nextQuestion(question, username) {
   Object.keys(users).forEach(value => {
     users[value].answer = question.correct_answer;
   });
-  userNameSp.emit('nextQuestion', question)
+  userNameSp.in(users[username].room).emit('nextQuestion', question)
+  // userNameSp.emit('nextQuestion', question)
 }
 
 function countdown(id) {
@@ -428,8 +406,7 @@ function endRound() {
 }
 
 function determineWinner(player1, player2) {
-  let player1Name = null;
-  let player2Name = null;
+  let player1Name, player2Name;
   Object.keys(users).forEach(value => {
     if (player1 === users[value].id) {
       player1Name = users[value].username;
@@ -444,7 +421,6 @@ function determineWinner(player1, player2) {
   users[player1Name].answer = null;
   users[player2Name].answer = null;
 
-  let winner = null;
   let text = {
     text: '',
     username: 'SYSTEM',
@@ -452,30 +428,19 @@ function determineWinner(player1, player2) {
     textColor: 'white'
   }
 
-  if (users[player1Name].score > users[player2Name].score) {
-    winner = player1Name;
-    text.text = `${player1Name} HAS WON ROUND ${round}!!!`;
-    users[player1Name].highScore += users[player1Name].score;
-
-    for (let i = 0; i < winners.length; i++) {
-      if (winners[i].username === player2Name) {
-        winners[i].wonRound = false;
-      }
-    }
-
-  } else {
-    winner = player2Name;
-    text.text = `${player2Name} HAS WON ROUND ${round}!!!`
-    users[player2Name].highScore += users[player2Name].score;
-
-    for (let i = 0; i < winners.length; i++) {
-      if (winners[i].username === player1Name) {
-        winners[i].wonRound = false;
-      }
+  let winner = (users[player1Name].score > users[player2Name].score) ? player1Name : player2Name;
+  let loser = winner === player1Name ? player2Name : player1Name;
+  text.text = `${winner} HAS WON ROUND ${round}!!!`;
+  users[winner].highScore = users[winner].highScore > users[winner].score ? users[winner].highScore : users[winner].score;
+  for (let i = 0; i < winners.length; i++) {
+    if (winners[i].username === loser) {
+      winners[i].wonRound = false;
     }
   }
-  userNameSp.to(player1).emit('message', text);
-  userNameSp.to(player2).emit('message', text);
+
+  userNameSp.in(users[player1Name].room).emit('message', text);
+  // userNameSp.to(player1).emit('message', text);
+  // userNameSp.to(player2).emit('message', text);
   round++;
 
   //remove players that lost this round and move them back to the lobby
@@ -554,6 +519,27 @@ function gameOver(winnerName){
 
     }, 3000);
   }, 2000);
+}
+
+async function getQuestions() {
+  const url = 'https://opentdb.com/api.php?amount=50'
+
+  await superagent.get(url)
+    .then (resultData => {
+      const arrayFromBody = resultData.body.results;
+      Object.values(arrayFromBody).forEach(question => {
+        question.question = cleanString(question.question);
+        let randomIndex = Math.floor(Math.random() * 4);
+        question.all_answers = question.incorrect_answers;
+        question.correct_answer = cleanString(question.correct_answer);
+        question.all_answers.splice(randomIndex, 0, question.correct_answer);
+        question.all_answers.forEach(function(question, index) {
+          this[index] = cleanString(question);
+        }, question.all_answers)
+        questionsArr.push(question);
+      })
+      return questionsArr;
+    })
 }
 
 function cleanString(string) {
