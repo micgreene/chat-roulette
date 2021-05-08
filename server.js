@@ -323,9 +323,14 @@ async function getQuestions() {
     .then (resultData => {
       const arrayFromBody = resultData.body.results;
       Object.values(arrayFromBody).forEach(question => {
+        question.question = cleanString(question.question);
         let randomIndex = Math.floor(Math.random() * 4);
         question.all_answers = question.incorrect_answers;
+        question.correct_answer = cleanString(question.correct_answer);
         question.all_answers.splice(randomIndex, 0, question.correct_answer);
+        question.all_answers.forEach(function(question, index) {
+          this[index] = cleanString(question);
+        }, question.all_answers)
         questionsArr.push(question);
       })
       return questionsArr;
@@ -514,6 +519,19 @@ function gameOver(winnerName){
 
     }, 3000);
   }, 2000);
+}
+
+function cleanString(string) {
+  let amp = /&amp;/g;
+  let quote = /&quot;/g;
+  let apost = /&#039;/g;
+  let apos = /&apos;/g;
+  let degree = /&deg;/g;
+  return string.replace(amp, "&")
+               .replace(quote, "\"")
+               .replace(apos, "\'")
+               .replace(degree, ' degrees')
+               .replace(apost, '\'');
 }
 
 console.log(`Server Listening on Port: ${port}.`)
