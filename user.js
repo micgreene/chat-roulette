@@ -12,12 +12,15 @@ const mute = require('mute');
 const unmute = mute();
 unmute();//unmutes
 
+var audio = new Audio('correct.mp3');
+
+
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
 
 const host = `http://localhost:${port}`;
-// const host = `https://5f237673f2b6.ngrok.io`;
+// const host = 'https://5f237673f2b6.ngrok.io';
 
 //give socket the host URL
 const socket = io.connect(`${host}/chatter`);
@@ -35,7 +38,6 @@ socket.on('connect', () => {
   console.log(`Client connected to Host Url:${host}.`);
   login();
 })
-
 
 socket.on('config', payload => {
   username = payload;
@@ -70,7 +72,9 @@ socket.on('login-error', payload => {
 })
 
 socket.on('joined-server', payload => {
-  console.log(`\n♫${payload}♫ has entered the Chatter©!`);
+  username = payload;
+  console.log(`\n♫${payload}♫ has entered the Chatter©!\n`);
+  console.log(`Joined Room: Lobby\n`);
   replStart();
   socket.off('joined-server');
 });
@@ -79,7 +83,7 @@ socket.on('odd-number-of-users', payload => {
   console.log(payload)
 });
 
-socket.on('clear', payload => {
+socket.on('clear-terminal', payload => {
   process.stdout.write('\x1B[2J');
 })
 
@@ -103,31 +107,22 @@ socket.on('command', (payload) => {
 })
 
 socket.on('question', (payload) => {
-  clearCommand();
-  console.log(payload.question, '\n', payload.choices);
+  console.log(payload.question, '\n', payload.all_answers);
 })
 
 socket.on('nextQuestion', (payload) => {
-  console.log(payload.question, '\n', payload.choices);
+  console.log(payload.question, '\n', payload.all_answers);
 })
 
 socket.on('correct', (payload) => {
   console.log(chalk.green(payload));
+  audio.play();
 })
 
 socket.on('incorrect', (payload) => {
   console.log(chalk.red(payload));
 
 })
-
-//eventual events we'll probably need
-// socket.on('round', payload => {
-//   console.log(`${payload.username} WON THE ROUND!!!`)
-// })
-
-// socket.on('winner', payload => {
-//   console.log(`${payload.username} WINS!!`)
-// })
 
 function clearCommand() {
   process.stdout.write('\u001b[1F');
@@ -156,32 +151,49 @@ function login() {
   var loginPrompt = { type: 'list', name: 'account', message: 'Do you have an account?', choices: ['Yes', 'No'] }
   inquirer.prompt(loginPrompt)
     .then(answer => {
-      var questions = [
-        { type: 'input', name: 'username', message: 'Enter your username: ' },
-        { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }
-      ]
-      if (answer.account === 'Yes') {
-        socket.off('message');
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('login-credentials', { username: answers.username, password: answers.secret });
-            socket.on('message', (payload) => {
-              console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
-            });
 
-          })
-          .catch(err => { console.log(err) })
-      } else {
-        socket.off('message');
-        inquirer.prompt(questions)
-          .then(answers => {
-            socket.emit('signup-credentials', { username: answers.username, password: answers.secret });
-
-            socket.on('message', (payload) => {
-                console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}`))
-            });
-          })
-      }
-    })
+      let nextEvent = (answer.account === "Yes") ? 'login-credentials' : 'signup-credentials';
+      let loginQs = [{ type: 'input', name: 'username', message: 'Enter your username: ' },
+        { type: 'password', name: 'secret', message: 'Enter your password: ', mask: '*' }]
+      let signupQs = [{ type: 'input', name: 'username', message: 'Enter your username: ' },
+        { type: 'password', name: 'secret', message: 'Enter your password. Must have at least 8 characters, a letter, number, and a symbol: ', mask: '*', validate: validatePassword}]
+      let questions = (answer.account === "Yes") ? loginQs : signupQs;
+      // socket.off('messages');
+      inquirer.prompt(questions)
+        .then(answers => {
+          socket.emit(nextEvent, { username: answers.username, password: answers.secret });
+          messagesOn();
+        })
+        .catch(err => { console.log(err) })
+      })
     .catch(err => { console.log(err) });
+}
+
+function messagesOn() {
+  socket.on('message', (payload) => {
+    console.log(chalk[payload.textStyle][payload.textColor](`[${payload.username}] ${payload.text.split('\n')[0]}\n`))
+  });
+}
+
+function messagesOff() {
+  socket.off('messages');
+}
+
+function validatePassword(value) {
+
+  let errorMessage = '';
+
+  const eightCharacters = /.{8,}/;
+  const letter = /[A-Za-z]+/;
+  const number = /\d+/;
+  const symbol = /\W+/;
+
+  if (!eightCharacters.test(value)) {errorMessage += 'not enough characters; '}
+  if (!letter.test(value)) {errorMessage += 'password must have at least one letter; '}
+  if (!number.test(value)) {errorMessage += 'password must have at least one number; '}
+  if (!symbol.test(value)) {errorMessage += 'password must have at least one symbol'}
+
+  if (!errorMessage.length) { return true; }
+
+  return errorMessage;
 }
