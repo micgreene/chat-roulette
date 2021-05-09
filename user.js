@@ -12,7 +12,6 @@ const mute = require('mute');
 const unmute = mute();
 unmute();//unmutes
 
-var audio = new Audio('correct.mp3');
 
 
 //configure environmental variables
@@ -119,22 +118,12 @@ socket.on('nextQuestion', (payload) => {
 
 socket.on('correct', (payload) => {
   console.log(chalk.green(payload));
-  audio.play();
 })
 
 socket.on('incorrect', (payload) => {
   console.log(chalk.red(payload));
 
 })
-
-//eventual events we'll probably need
-// socket.on('round', payload => {
-//   console.log(`${payload.username} WON THE ROUND!!!`)
-// })
-
-// socket.on('winner', payload => {
-//   console.log(`${payload.username} WINS!!`)
-// })
 
 function clearCommand() {
   process.stdout.write('\u001b[1F');

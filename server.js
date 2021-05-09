@@ -73,20 +73,22 @@ userNameSp.on('connection', (socket) => {
       socket.emit('config', payload.username);;
     })
   })
-  
+
   // !! Logic for styling the user text, but it's not working yet
   socket.on('configs-complete', payload => {
     // assigning the style selections to the user object
     users[payload.username].textColor = payload.textColor;
     users[payload.username].textStyle = payload.textStyle;
-    
-    userModel.findOneAndUpdate({username: `${payload.username}`}, {textColor: `${payload.textColor}`, textStyle: `${payload.textStyle}`}, {new: true}, (err, user) => {
+
+    userModel.findOneAndUpdate({ username: `${payload.username}` }, { textColor: `${payload.textColor}`, textStyle: `${payload.textStyle}` }, { new: true }, (err, user) => {
       if (err) {
         console.log(err);
-      } else { console.log(user);
-        
-        console.log('new user created:', {user});
-      socket.emit('joined-server', payload.username); }
+      } else {
+        console.log(user);
+
+        console.log('new user created:', { user });
+        socket.emit('joined-server', payload.username);
+      }
     });
   })
 
@@ -122,12 +124,6 @@ userNameSp.on('connection', (socket) => {
       socket.emit('authors', authorList);
     }
 
-    if (payload.text.split('\n')[0] === '**shuffle') {
-      shuffleUsers();
-      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
-
-    }
-
     // **start starts the chat game logic
     if (payload.text.split('\n')[0] === '**start') {
       shuffleUsers();
@@ -138,20 +134,16 @@ userNameSp.on('connection', (socket) => {
       startGame(question);
     }
 
-    try {
-      console.log(users[payload.username].answer);
+    if (users[payload.username].answer) {
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
-        userNameSp.emit('correct', 'Correct!');
+        userNameSp.in(users[payload.username].room).emit('correct', 'Correct!');
         users[payload.username].score++;
-        console.log('NEW SCORE: ', users[payload.username].score);
 
         let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
-        nextQuestion(question);
+        nextQuestion(question, payload.username);
       }
     }
-    catch {
 
-    }
   })
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
@@ -238,10 +230,10 @@ function shuffleUsers() {
   if (winners.length % 2 !== 0) {
     userNameSp.emit('odd-number-of-users', 'Need an EVEN number of users to shuffle rooms!');
   } else {
-    let counter = 1;    
+    let counter = 1;
     let roomNo = 0;
 
-    if (round === 1) {      
+    if (round === 1) {
       for (let i = 0; i < winners.length; i++) {
         winners[i].socket.leave('lobby');
         winners[i].socket.join(roomNo);
@@ -278,19 +270,23 @@ function shuffleUsers() {
 
         //every two players counted, the room number increases
         if (counter % 2 === 0) {
+          roomList.push(roomNo);
           counter = 1;
           roomNo++;
         } else if (counter % 2 !== 0) {
           counter++;
         }
       }
-    }    
+    }
   }
 
-  console.log('List of Rooms: ', roomList);
+  console.log('end of Shuffle() - List of Rooms: ', roomList);
 }
 
-function spliceLosers(){
+let countSplice = 1;
+function spliceLosers() {
+  console.log('spliceLosers Called: ', countSplice, ' Time(s).');
+  countSplice++;
   let text = {
     text: '',
     username: 'SYSTEM',
@@ -298,75 +294,72 @@ function spliceLosers(){
     textColor: 'green'
   };
 
-  for (let i = 0; i < winners.length; i++) {
-    if (winners[i].wonRound === false) {      
-      winners[i].socket.leave(winners[i].room);
-      winners[i].socket.join('lobby');
+  let losers = winners.filter(user=>{
+    return user.wonRound === false;
+  });
 
-      text.text = `You Lose!`;
-      winners[i].socket.emit('message', text);
-      text.text = `Moving Back to Room: Lobby\n`;
-      winners[i].socket.emit('message', text);
+  winners = winners.filter(user=>{
+    return user.wonRound === true;
+  });
 
-      Object.keys(users).forEach(value => {
-        if (winners[i].username === users[value].username) {
-          users[value].room = 'lobby';           
-        }
-      });
-
-      winners.splice(i, 1);  
-      if (winners[i] && winners[i].wonRound === false) {
-        winners.splice(i, 1);
-      }
-         
-    } 
-  }
+  losers.forEach(user=>{
+    user.socket.leave(user.room);
+    user.socket.join('lobby');
+    text.text = `You Lose!`;
+    user.socket.emit('message', text);
+    text.text = `Moving Back to Room: Lobby\n`;
+    user.socket.emit('message', text);
+    users[user.username].room = 'lobby';  
+  });    
 }
 
 // function to start game logic
-
 function startGame(question) {
-  round = 1;
-  Object.keys(users).forEach(value => {
-    //clears text from screen for important alerts
-    //*see user.js for 'clear' event handler
-    //userNameSp.to(users[value].id).emit('clear-terminal', question);
+  if (winners.length % 2 === 0) {
+    round = 1;
+    Object.keys(users).forEach(value => {
+      if (users[value].room !== 'lobby') {
+        //clears text from screen for important alerts
+        //*see user.js for 'clear' event handler
+        //userNameSp.to(users[value].id).emit('clear-terminal', question);
 
-    // assigns a correct answer to the player
-    users[value].answer = question.correct_answer;
+        // assigns a correct answer to the player
+        users[value].answer = question.correct_answer;
 
-    // resets the scores
-    users[value].score = 0;
-    let text = {
-      text: '************************GAME START!!!************************\n',
-      username: 'SYSTEM',
-      textStyle: 'bold',
-      textColor: 'green'
-    };
+        // resets the scores
+        users[value].score = 0;
+        let text = {
+          text: '************************GAME START!!!************************\n',
+          username: 'SYSTEM',
+          textStyle: 'bold',
+          textColor: 'green'
+        };
+
+        setTimeout(() => {
+          userNameSp.to(users[value].id).emit('message', text);
+          countdown(users[value].id);
+
+
+
+          setTimeout(() => {
+            userNameSp.to(users[value].id).emit('question', question);
+            console.log(question.correct_answer);
+          }, 4000);
+        }, 1000);
+      }
+    });
 
     setTimeout(() => {
-      userNameSp.to(users[value].id).emit('message', text);
-      countdown(users[value].id);
-
-
-
-      setTimeout(() => {
-        userNameSp.to(users[value].id).emit('question', question);
-      }, 4000);
-
-    }, 1000);
-  });
-
-  setTimeout(() => {
-    endRound();
-  }, 15000);
+      endRound();
+    }, 30000);
+  }
 }
 
 async function getQuestions() {
   const url = 'https://opentdb.com/api.php?amount=50'
 
   await superagent.get(url)
-    .then (resultData => {
+    .then(resultData => {
       const arrayFromBody = resultData.body.results;
       Object.values(arrayFromBody).forEach(question => {
         let randomIndex = Math.floor(Math.random() * 4);
@@ -378,13 +371,9 @@ async function getQuestions() {
     })
 }
 
-function nextQuestion(question) {  
-  Object.keys(users).forEach(value => {
-    console.log(question);
-    users[value].answer = question.correct_answer;
-  });
-
-  userNameSp.emit('nextQuestion', question)
+function nextQuestion(question, username) {
+  userNameSp.to(users[username].room).emit('nextQuestion', question);
+  console.log(question.correct_answer);
 }
 
 function countdown(id) {
@@ -437,12 +426,15 @@ function endRound() {
         userNameSp.to(value).emit('message', text);
       });
 
-      determineWinner(player1, player2);
+      
+      (player1 && player2) && determineWinner(player1, player2);
     }
   }
 }
 
 function determineWinner(player1, player2) {
+  // console.log('Times dW ran: ', countWinnerFunc);
+  // countWinnerFunc++;
   let player1Name = null;
   let player2Name = null;
   Object.keys(users).forEach(value => {
@@ -454,8 +446,8 @@ function determineWinner(player1, player2) {
     }
   });
 
-  console.log('player1 name: ', player1Name);
-  console.log('player2 name: ', player2Name);
+  console.log('determineWinner() - player1 name: ', player1);
+  console.log('determineWinner() - player2 name: ', player2);
   users[player1Name].answer = null;
   users[player2Name].answer = null;
 
@@ -494,35 +486,47 @@ function determineWinner(player1, player2) {
   round++;
 
   //remove players that lost this round and move them back to the lobby
+  console.log('determineWinner() - winners array before spliceLosers: ', winners);
   spliceLosers();
+  console.log('determineWinner() - winners array after spliceLosers: ', winners);
 
+  console.log('determineWinner() - winners array length after spliceLosers: ', winners.length);
   //when there is only 1 player left, broadcast the end of the game
-  if(winners.length === 1){    
+  if (winners.length === 1) {
     text.text = `'************************GAME OVER!!!'************************`;
     text.textColor = 'green';
     userNameSp.emit('message', text);
-    
-    return gameOver(winners[0].username);    
-  } 
 
-  setTimeout(() => {
-    text.text = `GET READY FOR ROUND ${round}!!!!`;
-    text.textColor = 'green';
+    return gameOver(winners[0].username);
+  } else {
+    console.log('We should NOT be here', winners.length);
+    // setTimeout(() => {
+      text.text = `GET READY FOR ROUND ${round}!!!!`;
+      text.textColor = 'green';
 
-    userNameSp.to(player2).emit('message', text);
+      Object.keys(users).forEach(value => {
+        if (users[value].username === player1Name) {
+          userNameSp.to(player1).emit('message', text);
+        }
+        if (users[value].username === player2Name) {
+          userNameSp.to(player2).emit('message', text);
+        }
+      });      
 
-    setTimeout(() => {
-      let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
-      shuffleUsers();
+      // setTimeout(() => {
+        let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
+        shuffleUsers();
 
-      startGame(question);
+        startGame(question);
 
-    }, 1000);
+      // }, 1000);
 
-  }, 3000);
+    // }, 3000);
+  }
 }
 
-function gameOver(winnerName){
+function gameOver(winnerName) {
+  console.log(`GAME OVER ${winnerName}`);
   setTimeout(() => {
     let text = {
       text: 'WE HAVE A NEW CHAMPION!\n',
