@@ -442,7 +442,6 @@ function determineWinner(player1, player2) {
   users[player1Name].answer = null;
   users[player2Name].answer = null;
 
-  let winner = null;
   let text = {
     text: '',
     username: 'SYSTEM',
