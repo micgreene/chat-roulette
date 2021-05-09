@@ -71,7 +71,6 @@ userNameSp.on('connection', (socket) => {
     })
   })
 
-  // !! Logic for styling the user text, but it's not working yet
   socket.on('configs-complete', payload => {
     // assigning the style selections to the user object
     users[payload.username].textColor = payload.textColor;
@@ -110,22 +109,18 @@ userNameSp.on('connection', (socket) => {
     // **start starts the chat game logic
     if (payload.text.split('\n')[0] === '**start') {
       shuffleUsers();
-      //console.log(users);
-      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
       let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       startGame(question);
     }
 
-    try {
-      console.log(users[payload.username].answer);
-      if (payload.text.split('\n')[0] === users[payload.username].answer) {
-        userNameSp.emit('correct', 'Correct!');
-        users[payload.username].score++;
-        console.log('NEW SCORE: ', users[payload.username].score);
+    console.log(users[payload.username].answer);
+    if (payload.text.split('\n')[0] === users[payload.username].answer) {
+      userNameSp.in(users[payload.username].room).emit('correct', `Correct answer ${payload.username}!`);
+      users[payload.username].score++;
+      console.log('NEW SCORE: ', users[payload.username].score);
 
-        let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
-        nextQuestion(question);
-      }
+      let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
+      nextQuestion(question, payload.username);
     }
 
     let updPayload = {
@@ -134,7 +129,9 @@ userNameSp.on('connection', (socket) => {
       textColor: users[payload.username].textColor,
       textStyle: users[payload.username].textStyle,
     }
-    userNameSp.emit('message', updPayload);
+    
+    // need to send only to the room the person is in
+    userNameSp.in(users[payload.username].room).emit('message', updPayload);
 
   })
 
@@ -179,6 +176,7 @@ function addNewUser(userObject, socket) {
     room: null,
     wonRound: true
   }
+  
   //create a new player object for the game start and place them in an array
   //this 'winners' array will keep track of players who have yet to be eliminated
   winnerObj.username = username;
@@ -369,7 +367,7 @@ function nextQuestion(question) {
   Object.keys(users).forEach(value => {
     users[value].answer = question.correct_answer;
   });
-  userNameSp.emit('nextQuestion', question)
+  userNameSp.in(users[username].room).emit('nextQuestion', question)
 }
 
 function countdown(id) {
@@ -452,30 +450,17 @@ function determineWinner(player1, player2) {
     textColor: 'white'
   }
 
-  if (users[player1Name].score > users[player2Name].score) {
-    winner = player1Name;
-    text.text = `${player1Name} HAS WON ROUND ${round}!!!`;
-    users[player1Name].highScore += users[player1Name].score;
-
-    for (let i = 0; i < winners.length; i++) {
-      if (winners[i].username === player2Name) {
-        winners[i].wonRound = false;
-      }
-    }
-
-  } else {
-    winner = player2Name;
-    text.text = `${player2Name} HAS WON ROUND ${round}!!!`
-    users[player2Name].highScore += users[player2Name].score;
-
-    for (let i = 0; i < winners.length; i++) {
-      if (winners[i].username === player1Name) {
-        winners[i].wonRound = false;
-      }
+  let winner = (users[player1Name].score > users[player2Name].score) ? player1Name : player2Name;
+  let loser = winner === player1Name ? player2Name : player1Name;
+  text.text = `${winner} HAS WON ROUND ${round}!!!`;
+  users[winner].highScore = users[winner].highScore > users[winner].score ? users[winner].highScore : users[winner].score;
+  for (let i = 0; i < winners.length; i++) {
+    if (winners[i].username === loser) {
+      winners[i].wonRound = false;
     }
   }
-  userNameSp.to(player1).emit('message', text);
-  userNameSp.to(player2).emit('message', text);
+
+  userNameSp.in(users[player1Name].room).emit('message', text);
   round++;
 
   //remove players that lost this round and move them back to the lobby
