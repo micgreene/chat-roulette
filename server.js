@@ -18,16 +18,13 @@ const userNameSp = io.of('/chatter');
 const dbUrl = process.env.MONGO_URL
 mongoose.connect(dbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 
-
 //internal modules
 const User = require('./user-class.js')
 const basic = require('./src/auth/middleware/basic.js');
 const userModel = require('./src/auth/models/User.js');
 
 //create an array to hold references to each connected user
-const users = {
-  // fills in as users connect
-};
+var users = {};
 
 // holds all of the question pulled from the trivia API
 let questionsArr = [];
@@ -43,24 +40,24 @@ let round = 1;
 getQuestions();
 
 userNameSp.on('connection', (socket) => {
+
   socket.join('lobby');
   console.log(`Socket id:${socket.id} has joined the Lobby!`);
 
   socket.on('login-credentials', async (payload) => {
-    let reply = await basic(payload.username, payload.password);
-    if (reply.error) {
-      // this condition is entered if login credentials are incorrect
-      console.log(reply.error.message)
-      socket.emit("login-error", reply.error.message);
-    } else { // there was no basic auth error, payload = user object
-      addNewUser(payload.username, socket);
-      socket.emit('config', payload.username);
+    let loggedInUser = await basic(payload.username, payload.password);
+    if (loggedInUser.error) {
+      console.log(loggedInUser.error.message)
+      socket.emit("login-error", loggedInUser.error.message);
+    } else {
+      addNewUser(loggedInUser, socket);
+      socket.emit('joined-server', loggedInUser.username);
     }
   });
 
   socket.on('signup-credentials', payload => {
-    var user = new userModel({ username: payload.username, password: payload.password });
-    user.save((err, user) => {
+    var newUser = new userModel({ username: payload.username, password: payload.password });
+    newUser.save((err, user) => {
       if (err) {
         console.log(err.message || "Error creating new user, no error message provided")
         let message = `There was an error creating the account`;
@@ -69,7 +66,7 @@ userNameSp.on('connection', (socket) => {
       } else {
         console.log(`You have successfully created an account ${user.username}`)
       }
-      addNewUser(payload.username, socket);
+      addNewUser(newUser, socket);
       socket.emit('config', payload.username);;
     })
   })
@@ -94,28 +91,14 @@ userNameSp.on('connection', (socket) => {
 
   // submitting a string in the terminal will automatically create a message event via repl
   socket.on('message', async payload => {
-    //send message to all on server
-    // socket.broadcast.emit sends to all except sender
-    // io.emit sends to all sockets (but we hae a namespace)
-    // socket.emit sends to 1
-    let updPayload = await {
-      text: payload.text,
-      username: payload.username,
-      textColor: users[payload.username].textColor,
-      textStyle: users[payload.username].textStyle,
+
+    if (!users[payload.username]) {
+      users[payload.username] = await userModel.findOne({ username: `${payload.username}` });
     }
-    userNameSp.emit('message', updPayload);
 
-    //*******************COMMANDS LIST********************/
-    //----------List of Commands Users/Admins May Enter Into Terminal
-    //command strings are all prefaced by **
-
-    let newPayload = emojis(payload);
-
-    if (newPayload) {
-      socket.broadcast.emit('command', newPayload);
-      socket.emit('command', newPayload);
-    }
+    // *******************COMMANDS LIST********************/
+    // ----------List of Commands Users/Admins May Enter Into Terminal
+    // command strings are all prefaced by **
 
     //**authors returns the names and Linked-in urls of all team members
     if (payload.text.split('\n')[0] === '**authors') {
@@ -128,8 +111,7 @@ userNameSp.on('connection', (socket) => {
     if (payload.text.split('\n')[0] === '**start') {
       shuffleUsers();
       //console.log(users);
-      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);  
-
+      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
       let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       startGame(question);
     }
@@ -143,6 +125,14 @@ userNameSp.on('connection', (socket) => {
         nextQuestion(question, payload.username);
       }
     }
+
+    let updPayload = {
+      text: emojis(payload.text),
+      username: payload.username,
+      textColor: users[payload.username].textColor,
+      textStyle: users[payload.username].textStyle,
+    }
+    userNameSp.emit('message', updPayload);
 
   })
 
@@ -162,24 +152,22 @@ userNameSp.on('connection', (socket) => {
   });
 });
 
-function emojis(payload) {
-  if (payload.text.split('\n')[0] === '**lol') {
-    let newPayload = {
-      text: '"(^v^)"\n',
-      username: payload.username
-    }
-
-    return newPayload;
-
+function emojis(text) {
+  if (text.split('\n')[0] === '**lol') {
+    return '"(^v^)"\n'
+  } else {
+    return text
   }
 }
 
-function addNewUser(username, socket) {
-  //create a new User object and register its socket id, then place them in the lobby 
+function addNewUser(userObject, socket) {
+  let username = userObject.username;
   users[username] = new User(username);
   users[username].room = 'lobby';
   users[username].id = socket.id;
   users[username].socket = socket;
+  users[username].textColor = userObject.textColor;
+  users[username].textStyle = userObject.textStyle;
 
   // creates a new instance of the username/socket.id/socket of a new user to keep track of for the game tournament array
   let winnerObj = {
@@ -203,11 +191,12 @@ function addNewUser(username, socket) {
 
 //keeps a list of devs for the project and their contact info
 function authors() {
+  const lIn = `https://www.linkedin.com/in/`
   const projectAuthors = {
-    darci: { name: 'Dar-Ci Calhoun     ', linkedin: 'url' },
-    anne: { name: 'Anne Thorsteinson  ', linkedin: 'url' },
-    cody: { name: 'Cody Carpenter     ', linkedin: 'url' },
-    mike: { name: 'Michael Greene     ', linkedin: 'url' }
+    darci: { name: 'Dar-Ci Calhoun     ', linkedin: `${lIn}dlcalhoun` },
+    anne: { name: 'Anne Thorsteinson  ', linkedin: `${lIn}annethor` },
+    cody: { name: 'Cody Carpenter     ', linkedin: `${lIn}callmecody` },
+    mike: { name: 'Michael Greene     ', linkedin: `${lIn}michael-greene-b7879774/`}
   };
   return projectAuthors;
 }
@@ -362,9 +351,14 @@ async function getQuestions() {
     .then(resultData => {
       const arrayFromBody = resultData.body.results;
       Object.values(arrayFromBody).forEach(question => {
+        question.question = cleanString(question.question);
         let randomIndex = Math.floor(Math.random() * 4);
         question.all_answers = question.incorrect_answers;
+        question.correct_answer = cleanString(question.correct_answer);
         question.all_answers.splice(randomIndex, 0, question.correct_answer);
+        question.all_answers.forEach(function(question, index) {
+          this[index] = cleanString(question);
+        }, question.all_answers)
         questionsArr.push(question);
       })
       return questionsArr;
@@ -492,7 +486,7 @@ function determineWinner(player1, player2) {
 
   console.log('determineWinner() - winners array length after spliceLosers: ', winners.length);
   //when there is only 1 player left, broadcast the end of the game
-  if (winners.length === 1) {
+  if(winners.length === 1){
     text.text = `'************************GAME OVER!!!'************************`;
     text.textColor = 'green';
     userNameSp.emit('message', text);
@@ -575,21 +569,17 @@ function gameOver(winnerName) {
   }, 2000);
 }
 
-
-// //this evaluates all text enter into the terminal after the user hits enter :)
-// repl.start({
-//   //use this to set a prompt at the beginning of the terminal command line
-//   prompt: ``,
-//   //this is whatever text was last entered into the terminal by the user
-//   eval: (text) => {
-//     //what this does is move the cursor up to the previous line to clear the last line of text the user inputs
-//     //this prevents multiple lines of your own text staying in the terminal when posting your messages
-//     process.stdout.write('\u001b[1F');
-
-//     //this creates an automatic 'message' event using the username and text entered as the payload
-//     socket.send({ text, username });
-//   },
-// })
-
+function cleanString(string) {
+  let amp = /&amp;/g;
+  let quote = /&quot;/g;
+  let apost = /&#039;/g;
+  let apos = /&apos;/g;
+  let degree = /&deg;/g;
+  return string.replace(amp, "&")
+               .replace(quote, "\"")
+               .replace(apos, "\'")
+               .replace(degree, ' degrees')
+               .replace(apost, '\'');
+}
 
 console.log(`Server Listening on Port: ${port}.`)
