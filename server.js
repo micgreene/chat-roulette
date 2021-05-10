@@ -132,7 +132,7 @@ userNameSp.on('connection', (socket) => {
       textColor: users[payload.username].textColor,
       textStyle: users[payload.username].textStyle,
     }
-    userNameSp.emit('message', updPayload);
+    userNameSp.in(users[payload.username].room).emit('message', updPayload);
 
   })
 
@@ -304,8 +304,7 @@ function spliceLosers() {
 
 // function to start game logic
 function startGame(question) {
-  if (winners.length % 2 === 0) {
-    round = 1;
+  if (winners.length % 2 === 0) {    
     Object.keys(users).forEach(value => {
       if (users[value].room !== 'lobby') {
         //clears text from screen for important alerts
@@ -476,15 +475,11 @@ function determineWinner(player1, player2) {
     }
   }
   userNameSp.to(player1).emit('message', text);
-  userNameSp.to(player2).emit('message', text);
-  round++;
+  userNameSp.to(player2).emit('message', text);  
 
   //remove players that lost this round and move them back to the lobby
-  console.log('determineWinner() - winners array before spliceLosers: ', winners);
   spliceLosers();
-  console.log('determineWinner() - winners array after spliceLosers: ', winners);
 
-  console.log('determineWinner() - winners array length after spliceLosers: ', winners.length);
   //when there is only 1 player left, broadcast the end of the game
   if(winners.length === 1){
     text.text = `'************************GAME OVER!!!'************************`;
@@ -495,6 +490,7 @@ function determineWinner(player1, player2) {
   } else {
     console.log('We should NOT be here', winners.length);
     // setTimeout(() => {
+      round++;
       text.text = `GET READY FOR ROUND ${round}!!!!`;
       text.textColor = 'green';
 
@@ -562,6 +558,7 @@ function gameOver(winnerName) {
         winnerObj.id = users[value].id;
         winnerObj.socket = users[value].socket;
         winners.push(winnerObj);
+        round = 1;
       });
       console.log('room breakdown: ', userNameSp.adapter.rooms);
 
