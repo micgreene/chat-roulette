@@ -12,9 +12,6 @@ const mute = require('mute');
 const unmute = mute();
 unmute();//unmutes
 
-var audio = new Audio('correct.mp3');
-
-
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
@@ -116,18 +113,19 @@ socket.on('nextQuestion', (payload) => {
 
 socket.on('correct', (payload) => {
   console.log(chalk.green(payload));
-  audio.play();
 })
 
 socket.on('incorrect', (payload) => {
   console.log(chalk.red(payload));
+})
 
+socket.on('chat', payload => {
+  console.log(payload);
 })
 
 function clearCommand() {
   process.stdout.write('\u001b[1F');
 }
-
 
 function replStart() {
   //this evaluates all text enter into the terminal after the user hits enter :)

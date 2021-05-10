@@ -9,12 +9,11 @@ class User{
     this.transcript = null,
     this.answer = null,
     this.score = 0,
-    this.highScore = 0,
     this.wins = 0,
     this.losses = 0,
     this.textColor = "blue",
-    this.textStyle = "bold"
-    //,this.ties = 0
+    this.textStyle = "bold",
+    this.active = true
   };
 }
 
