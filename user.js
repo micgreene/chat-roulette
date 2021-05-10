@@ -12,9 +12,6 @@ const mute = require('mute');
 const unmute = mute();
 unmute();//unmutes
 
-// var audio = new Audio('correct.mp3');
-
-
 //configure environmental variables
 dotenv.config();
 const port = process.env.PORT;
@@ -116,7 +113,6 @@ socket.on('nextQuestion', (payload) => {
 
 socket.on('correct', (payload) => {
   console.log(chalk.green(payload));
-  // audio.play();
 })
 
 socket.on('incorrect', (payload) => {
