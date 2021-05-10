@@ -114,12 +114,7 @@ socket.on('nextQuestion', (payload) => {
 })
 
 socket.on('correct', (payload) => {
-  console.log(chalk.green(payload));
-})
-
-socket.on('incorrect', (payload) => {
-  console.log(chalk.red(payload));
-
+  console.log(chalk.green(payload, '\n\n'));
 })
 
 function clearCommand() {

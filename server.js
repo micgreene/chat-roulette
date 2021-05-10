@@ -36,6 +36,9 @@ let roomList = [];
 //keep track of which game round it is
 let round = 1;
 
+//if the message sent was the correct answer to a question, become true to send the chat message before the next question
+let wasAnswer = false;
+
 //fill questions array
 getQuestions();
 
@@ -71,7 +74,6 @@ userNameSp.on('connection', (socket) => {
     })
   })
 
-  // !! Logic for styling the user text, but it's not working yet
   socket.on('configs-complete', payload => {
     // assigning the style selections to the user object
     users[payload.username].textColor = payload.textColor;
@@ -99,6 +101,12 @@ userNameSp.on('connection', (socket) => {
     // *******************COMMANDS LIST********************/
     // ----------List of Commands Users/Admins May Enter Into Terminal
     // command strings are all prefaced by **
+    let updPayload = {
+      text: emojis(payload.text),
+      username: payload.username,
+      textColor: users[payload.username].textColor,
+      textStyle: users[payload.username].textStyle,
+    }
 
     //**authors returns the names and Linked-in urls of all team members
     if (payload.text.split('\n')[0] === '**authors') {
@@ -110,30 +118,29 @@ userNameSp.on('connection', (socket) => {
     // **start starts the chat game logic
     if (payload.text.split('\n')[0] === '**start') {
       shuffleUsers();
-      //console.log(users);
-      //console.log('Rooms Breakdown: ', socket.nsp.adapter.rooms);
       let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
       startGame(question);
     }
 
     if (users[payload.username].answer) {
       if (payload.text.split('\n')[0] === users[payload.username].answer) {
-        userNameSp.in(users[payload.username].room).emit('correct', 'Correct!');
+        // need to send only to the room the person is in
+        userNameSp.in(users[payload.username].room).emit('message', updPayload);
+        userNameSp.in(users[payload.username].room).emit('correct', `Correct answer, ${payload.username}!`);
         users[payload.username].score++;
 
         let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
         nextQuestion(question, payload.username);
+
+        wasAnswer = true;
       }
-    }
+    }    
 
-    let updPayload = {
-      text: emojis(payload.text),
-      username: payload.username,
-      textColor: users[payload.username].textColor,
-      textStyle: users[payload.username].textStyle,
+    if(wasAnswer === false){
+      // need to send only to the room the person is in
+      userNameSp.in(users[payload.username].room).emit('message', updPayload);
     }
-    userNameSp.in(users[payload.username].room).emit('message', updPayload);
-
+    wasAnswer = false;
   })
 
   //when a user disconnects alert server admin user has disconnected and splice the user from the winners array
@@ -177,6 +184,7 @@ function addNewUser(userObject, socket) {
     room: null,
     wonRound: true
   }
+
   //create a new player object for the game start and place them in an array
   //this 'winners' array will keep track of players who have yet to be eliminated
   winnerObj.username = username;
@@ -196,7 +204,7 @@ function authors() {
     darci: { name: 'Dar-Ci Calhoun     ', linkedin: `${lIn}dlcalhoun` },
     anne: { name: 'Anne Thorsteinson  ', linkedin: `${lIn}annethor` },
     cody: { name: 'Cody Carpenter     ', linkedin: `${lIn}callmecody` },
-    mike: { name: 'Michael Greene     ', linkedin: `${lIn}michael-greene-b7879774/`}
+    mike: { name: 'Michael Greene     ', linkedin: `${lIn}michael-greene-b7879774/` }
   };
   return projectAuthors;
 }
@@ -268,13 +276,10 @@ function shuffleUsers() {
       }
     }
   }
-
-  console.log('end of Shuffle() - List of Rooms: ', roomList);
 }
 
 let countSplice = 1;
 function spliceLosers() {
-  console.log('spliceLosers Called: ', countSplice, ' Time(s).');
   countSplice++;
   let text = {
     text: '',
@@ -283,28 +288,29 @@ function spliceLosers() {
     textColor: 'green'
   };
 
-  let losers = winners.filter(user=>{
+  let losers = winners.filter(user => {
     return user.wonRound === false;
   });
 
-  winners = winners.filter(user=>{
+  winners = winners.filter(user => {
     return user.wonRound === true;
   });
 
-  losers.forEach(user=>{
+  losers.forEach(user => {
     user.socket.leave(user.room);
     user.socket.join('lobby');
     text.text = `You Lose!`;
     user.socket.emit('message', text);
+    text.textColor = 'green';
     text.text = `Moving Back to Room: Lobby\n`;
     user.socket.emit('message', text);
-    users[user.username].room = 'lobby';  
-  });    
+    users[user.username].room = 'lobby';
+  });
 }
 
 // function to start game logic
 function startGame(question) {
-  if (winners.length % 2 === 0) {    
+  if (winners.length % 2 === 0) {
     Object.keys(users).forEach(value => {
       if (users[value].room !== 'lobby') {
         //clears text from screen for important alerts
@@ -330,12 +336,13 @@ function startGame(question) {
 
 
           setTimeout(() => {
-            userNameSp.to(users[value].id).emit('question', question);
-            console.log(question.correct_answer);
+            userNameSp.to(users[value].id).emit('question', question);            
           }, 4000);
         }, 1000);
       }
     });
+
+    console.log(question.correct_answer);
 
     setTimeout(() => {
       endRound();
@@ -355,7 +362,7 @@ async function getQuestions() {
         question.all_answers = question.incorrect_answers;
         question.correct_answer = cleanString(question.correct_answer);
         question.all_answers.splice(randomIndex, 0, question.correct_answer);
-        question.all_answers.forEach(function(question, index) {
+        question.all_answers.forEach(function (question, index) {
           this[index] = cleanString(question);
         }, question.all_answers)
         questionsArr.push(question);
@@ -365,8 +372,17 @@ async function getQuestions() {
 }
 
 function nextQuestion(question, username) {
-  userNameSp.to(users[username].room).emit('nextQuestion', question);
+  let currentRoom = users[username].room;
+
+  userNameSp.adapter.rooms.get(currentRoom).forEach(value => {
+    Object.keys(users).forEach(user => {
+      if (users[user].id === value) {
+        users[user].answer = question.correct_answer;
+      }
+    });
+  });
   console.log(question.correct_answer);
+  userNameSp.in(users[username].room).emit('nextQuestion', question)
 }
 
 function countdown(id) {
@@ -402,7 +418,7 @@ function endRound() {
     textStyle: 'green',
     textColor: 'bold'
   };
-
+  
   for (let i = 0; i < userNameSp.adapter.rooms.size; i++) {
     let player1 = null;
     let player2 = null;
@@ -419,15 +435,43 @@ function endRound() {
         userNameSp.to(value).emit('message', text);
       });
 
-      
-      (player1 && player2) && determineWinner(player1, player2);
+      //(player1 && player2) && 
+      determineWinner(player1, player2);
     }
+  }
+
+  //when there is only 1 player left, broadcast the end of the game
+  if (winners.length === 1) {
+    text.text = `'************************GAME OVER!!!'************************`;
+    text.textColor = 'green';
+    userNameSp.emit('message', text);
+
+    return gameOver(winners[0].username);
+  } else {
+    round++;
+    setTimeout(() => {
+      text.text = `GET READY FOR ROUND ${round}!!!!`;
+      text.textColor = 'green';
+
+      for (let i = 0; i < userNameSp.adapter.rooms.size; i++) {
+        if (userNameSp.adapter.rooms.get(i)) {
+          userNameSp.to(i).emit('message', text);
+        }
+      }      
+
+      setTimeout(() => {
+        let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
+        shuffleUsers();
+
+        startGame(question);
+
+      }, 1000);
+
+    }, 3000);
   }
 }
 
 function determineWinner(player1, player2) {
-  // console.log('Times dW ran: ', countWinnerFunc);
-  // countWinnerFunc++;
   let player1Name = null;
   let player2Name = null;
   Object.keys(users).forEach(value => {
@@ -439,12 +483,9 @@ function determineWinner(player1, player2) {
     }
   });
 
-  console.log('determineWinner() - player1 name: ', player1);
-  console.log('determineWinner() - player2 name: ', player2);
   users[player1Name].answer = null;
   users[player2Name].answer = null;
 
-  let winner = null;
   let text = {
     text: '',
     username: 'SYSTEM',
@@ -452,71 +493,23 @@ function determineWinner(player1, player2) {
     textColor: 'white'
   }
 
-  if (users[player1Name].score > users[player2Name].score) {
-    winner = player1Name;
-    text.text = `${player1Name} HAS WON ROUND ${round}!!!`;
-    users[player1Name].highScore += users[player1Name].score;
-
-    for (let i = 0; i < winners.length; i++) {
-      if (winners[i].username === player2Name) {
-        winners[i].wonRound = false;
-      }
-    }
-
-  } else {
-    winner = player2Name;
-    text.text = `${player2Name} HAS WON ROUND ${round}!!!`
-    users[player2Name].highScore += users[player2Name].score;
-
-    for (let i = 0; i < winners.length; i++) {
-      if (winners[i].username === player1Name) {
-        winners[i].wonRound = false;
-      }
+  let winner = (users[player1Name].score > users[player2Name].score) ? player1Name : player2Name;
+  let loser = winner === player1Name ? player2Name : player1Name;
+  text.text = `${winner} HAS WON ROUND ${round}!!!`;
+  users[winner].highScore = users[winner].highScore > users[winner].score ? users[winner].highScore : users[winner].score;
+  for (let i = 0; i < winners.length; i++) {
+    if (winners[i].username === loser) {
+      winners[i].wonRound = false;
     }
   }
-  userNameSp.to(player1).emit('message', text);
-  userNameSp.to(player2).emit('message', text);  
+
+  userNameSp.in(users[player1Name].room).emit('message', text);  
 
   //remove players that lost this round and move them back to the lobby
   spliceLosers();
-
-  //when there is only 1 player left, broadcast the end of the game
-  if(winners.length === 1){
-    text.text = `'************************GAME OVER!!!'************************`;
-    text.textColor = 'green';
-    userNameSp.emit('message', text);
-
-    return gameOver(winners[0].username);
-  } else {
-    console.log('We should NOT be here', winners.length);
-    // setTimeout(() => {
-      round++;
-      text.text = `GET READY FOR ROUND ${round}!!!!`;
-      text.textColor = 'green';
-
-      Object.keys(users).forEach(value => {
-        if (users[value].username === player1Name) {
-          userNameSp.to(player1).emit('message', text);
-        }
-        if (users[value].username === player2Name) {
-          userNameSp.to(player2).emit('message', text);
-        }
-      });      
-
-      // setTimeout(() => {
-        let question = questionsArr[Math.floor(Math.random() * questionsArr.length)];
-        shuffleUsers();
-
-        startGame(question);
-
-      // }, 1000);
-
-    // }, 3000);
-  }
 }
 
 function gameOver(winnerName) {
-  console.log(`GAME OVER ${winnerName}`);
   setTimeout(() => {
     let text = {
       text: 'WE HAVE A NEW CHAMPION!\n',
@@ -560,8 +553,6 @@ function gameOver(winnerName) {
         winners.push(winnerObj);
         round = 1;
       });
-      console.log('room breakdown: ', userNameSp.adapter.rooms);
-
     }, 3000);
   }, 2000);
 }
@@ -573,10 +564,16 @@ function cleanString(string) {
   let apos = /&apos;/g;
   let degree = /&deg;/g;
   return string.replace(amp, "&")
-               .replace(quote, "\"")
-               .replace(apos, "\'")
-               .replace(degree, ' degrees')
-               .replace(apost, '\'');
+    .replace(quote, "\"")
+    .replace(apos, "\'")
+    .replace(degree, ' degrees')
+    .replace(apost, '\'');
 }
 
 console.log(`Server Listening on Port: ${port}.`)
+
+module.exports = {
+  addNewUser: addNewUser,
+  emojis: emojis,
+  cleanString: cleanString
+}
