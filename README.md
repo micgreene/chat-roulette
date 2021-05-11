@@ -20,4 +20,6 @@ node.js/socket.io/mongoDB app that allows users to sign up, login, and join chat
 
 - Chris B (TA): Debugged method for updating MongoDB data
 - John C (Instructor): setting methods to variables and returning data as method for unit testing
+- Socket.io documentation of unit testing examples:
+  - [Testing - example with `jest`](https://socket.io/docs/v3/testing/)
 - Mongoose: [`findOneAndUpdate()` link](https://mongoosejs.com/docs/tutorials/findoneandupdate.html#:~:text=You%20should%20use%20save(),need%20to%20use%20findOneAndUpdate()%20)

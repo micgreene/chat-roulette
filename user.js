@@ -68,13 +68,23 @@ socket.on('login-error', payload => {
   })
 })
 
-socket.on('joined-server', payload => {
+socket.on('joined-server', joinSrvResp);
+
+function joinSrvResp(payload) {
   username = payload;
   console.log(`\n♫${payload}♫ has entered the Chatter©!\n`);
   console.log(`Joined Room: Lobby\n`);
   replStart();
   socket.off('joined-server');
-});
+}
+
+// socket.on('joined-server', payload => {
+//   username = payload;
+//   console.log(`\n♫${payload}♫ has entered the Chatter©!\n`);
+//   console.log(`Joined Room: Lobby\n`);
+//   replStart();
+//   socket.off('joined-server');
+// });
 
 socket.on('odd-number-of-users', payload => {
   console.log(payload)
@@ -191,4 +201,9 @@ function validatePassword(value) {
   if (!errorMessage.length) { return true; }
 
   return errorMessage;
+}
+
+module.exports = {
+  validatePassword: validatePassword,
+  joinSrvResp: joinSrvResp,
 }
